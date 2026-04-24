@@ -1,6 +1,12 @@
-import * as SQLite from 'expo-sqlite';
-import { drizzle } from 'drizzle-orm/expo-sqlite';
-import * as schema from './schema';
+/**
+ * Seed script for Ruff database
+ * Uses better-sqlite3 for Node.js environment
+ * Run with: bun run src/db/seed-node.ts
+ */
+
+import Database from 'better-sqlite3';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { sql } from 'drizzle-orm';
 
 const DATABASE_NAME = 'ruff.db';
 
@@ -18,13 +24,13 @@ async function seed() {
   console.log('Starting database seed...');
 
   // Open database
-  const sqlite = SQLite.openDatabaseSync(DATABASE_NAME);
+  const sqlite = new Database(DATABASE_NAME);
   console.log(`Opened database: ${DATABASE_NAME}`);
 
-  // Run migrations using execSync
+  // Run migrations
   console.log('Creating tables...');
 
-  sqlite.execSync(`
+  sqlite.exec(`
     CREATE TABLE IF NOT EXISTS user (
       id text PRIMARY KEY DEFAULT 'local',
       running_goal_distance text,
@@ -111,7 +117,7 @@ async function seed() {
   `);
 
   // Create indexes
-  sqlite.execSync(`
+  sqlite.exec(`
     CREATE INDEX IF NOT EXISTS idx_weekly_plan_plan_id ON weekly_plan(plan_id);
     CREATE INDEX IF NOT EXISTS idx_daily_plan_weekly_plan_id ON daily_plan(weekly_plan_id);
     CREATE INDEX IF NOT EXISTS idx_unit_daily_plan_id ON unit(daily_plan_id);
@@ -124,19 +130,16 @@ async function seed() {
   console.log('Tables created');
 
   // Create drizzle instance
-  const db = drizzle(sqlite, { schema });
+  const db = drizzle(sqlite);
 
   // ============================================================================
   // Seed User
   // ============================================================================
   console.log('\nSeeding user...');
-  await db.insert(schema.user).values({
-    id: 'local',
-    runningGoalDistance: '5k',
-    runningGoalTime: 20 * 60,
-    vdot: 49.5,
-    updatedAt: now(),
-  }).onConflictDoNothing();
+  sqlite.exec(`
+    INSERT OR IGNORE INTO user (id, running_goal_distance, running_goal_time, vdot, updated_at)
+    VALUES ('local', '5k', 1200, 49.5, '${now()}')
+  `);
   console.log('User seeded');
 
   // ============================================================================
@@ -144,22 +147,25 @@ async function seed() {
   // ============================================================================
   console.log('\nSeeding plan...');
   const planId = generateId();
-  await db.insert(schema.plan).values({
-    id: planId,
-    name: '5K 训练计划',
-    targetDistance: '5k',
-    targetTime: 20 * 60,
-    vdot: 49.5,
-    paceE: 386,
-    paceM: 340,
-    paceT: 313,
-    paceI: 286,
-    paceR: 259,
-    weeks: 8,
-    desc: '8周5K训练计划',
-    createdAt: now(),
-    updatedAt: now(),
-  });
+  sqlite.exec(`
+    INSERT INTO plan (id, name, target_distance, target_time, vdot, pace_e, pace_m, pace_t, pace_i, pace_r, weeks, desc, created_at, updated_at)
+    VALUES (
+      '${planId}',
+      '5K 训练计划',
+      '5k',
+      1200,
+      49.5,
+      386,
+      340,
+      313,
+      286,
+      259,
+      8,
+      '8周5K训练计划',
+      '${now()}',
+      '${now()}'
+    )
+  `);
   console.log(`Plan created: ${planId}`);
 
   // ============================================================================
@@ -172,98 +178,84 @@ async function seed() {
     const weeklyPlanId = generateId();
     weeklyPlanIds.push(weeklyPlanId);
 
-    await db.insert(schema.weeklyPlan).values({
-      id: weeklyPlanId,
-      planId: planId,
-      weekIndex: week,
-      desc: `第${week}周`,
-    });
+    sqlite.exec(`
+      INSERT INTO weekly_plan (id, plan_id, week_index, desc)
+      VALUES ('${weeklyPlanId}', '${planId}', ${week}, '第${week}周')
+    `);
 
     for (let day = 1; day <= 7; day++) {
       const dailyPlanId = generateId();
 
-      await db.insert(schema.dailyPlan).values({
-        id: dailyPlanId,
-        weeklyPlanId,
-        dayIndex: day,
-        desc: `第${week}周 第${day}天`,
-      });
+      sqlite.exec(`
+        INSERT INTO daily_plan (id, weekly_plan_id, day_index, desc)
+        VALUES ('${dailyPlanId}', '${weeklyPlanId}', ${day}, '第${week}周 第${day}天')
+      `);
 
       // Seed units based on day of week
+      let type = 'run';
+      let paceMode: string | null = null;
+      let paceValue: string | null = null;
+      let standardType: string | null = null;
+      let standardValue: number | null = null;
+      let standard: string | null = null;
+      let content: string | null = null;
+      let orderIndex = 1;
+
       if (day === 1) {
         // 周一: E跑
-        await db.insert(schema.unit).values({
-          id: generateId(),
-          dailyPlanId,
-          type: 'run',
-          orderIndex: 1,
-          paceMode: 'vdot',
-          paceValue: 'E',
-          standardType: 'distance',
-          standardValue: 5000,
-        });
+        paceMode = 'vdot';
+        paceValue = 'E';
+        standardType = 'distance';
+        standardValue = 5000;
       } else if (day === 2) {
         // 周二: 休息
-        await db.insert(schema.unit).values({
-          id: generateId(),
-          dailyPlanId,
-          type: 'rest',
-          orderIndex: 1,
-        });
+        type = 'rest';
+        standard = 'time';
+        standardValue = 0;
       } else if (day === 3) {
         // 周三: T跑
-        await db.insert(schema.unit).values({
-          id: generateId(),
-          dailyPlanId,
-          type: 'run',
-          orderIndex: 1,
-          paceMode: 'vdot',
-          paceValue: 'T',
-          standardType: 'time',
-          standardValue: 30 * 60,
-        });
+        paceMode = 'vdot';
+        paceValue = 'T';
+        standardType = 'time';
+        standardValue = 30 * 60;
       } else if (day === 4) {
         // 周四: 休息
-        await db.insert(schema.unit).values({
-          id: generateId(),
-          dailyPlanId,
-          type: 'rest',
-          orderIndex: 1,
-        });
+        type = 'rest';
+        standard = 'time';
+        standardValue = 0;
       } else if (day === 5) {
         // 周五: E跑
-        await db.insert(schema.unit).values({
-          id: generateId(),
-          dailyPlanId,
-          type: 'run',
-          orderIndex: 1,
-          paceMode: 'vdot',
-          paceValue: 'E',
-          standardType: 'distance',
-          standardValue: 3000,
-        });
+        paceMode = 'vdot';
+        paceValue = 'E';
+        standardType = 'distance';
+        standardValue = 3000;
       } else if (day === 6) {
         // 周六: 力量
-        await db.insert(schema.unit).values({
-          id: generateId(),
-          dailyPlanId,
-          type: 'other',
-          orderIndex: 1,
-          content: '核心力量训练 30分钟',
-        });
+        type = 'other';
+        content = '核心力量训练 30分钟';
       } else {
         // 周日: 长距离E跑
-        await db.insert(schema.unit).values({
-          id: generateId(),
-          dailyPlanId,
-          type: 'run',
-          orderIndex: 1,
-          paceMode: 'vdot',
-          paceValue: 'E',
-          standardType: 'distance',
-          standardValue: 8000,
-        });
+        paceMode = 'vdot';
+        paceValue = 'E';
+        standardType = 'distance';
+        standardValue = 8000;
       }
+
+      sqlite.exec(`
+        INSERT INTO unit (id, daily_plan_id, type, order_index, pace_mode, pace_value, standard_type, standard_value, standard, content)
+        VALUES (
+          '${generateId()}',
+          '${dailyPlanId}',
+          '${type}',
+          ${orderIndex},
+          ${paceMode ? `'${paceMode}'` : 'NULL'},
+          ${paceValue ? `'${paceValue}'` : 'NULL'},
+          ${standardType ? `'${standardType}'` : 'NULL'},
+          ${standardValue !== null ? standardValue : 'NULL'},
+          ${standard ? `'${standard}'` : 'NULL'},
+          ${content ? `'${content.replace(/'/g, "''")}'` : 'NULL'}
+        )
+      `);
     }
   }
   console.log('Weekly and daily plans seeded');
@@ -277,25 +269,20 @@ async function seed() {
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
   const thisMonday = new Date(today);
   thisMonday.setDate(today.getDate() + mondayOffset);
-  const mondayStr = thisMonday.toISOString().split('T')[0];
 
   // Get week 1 daily plans
-  const week1DailyPlans = await db.query.dailyPlan.findMany({
-    where: (dp, { eq }) => eq(dp.weeklyPlanId, weeklyPlanIds[0]),
-  });
+  const week1DailyPlans = sqlite.prepare('SELECT * FROM daily_plan WHERE weekly_plan_id = ?').all(weeklyPlanIds[0]);
 
-  for (const dp of week1DailyPlans) {
+  for (const dp of week1DailyPlans as any[]) {
     const date = new Date(thisMonday);
-    date.setDate(thisMonday.getDate() + dp.dayIndex - 1);
+    date.setDate(thisMonday.getDate() + dp.day_index - 1);
     const dateStr = date.toISOString().split('T')[0];
+    const status = dateStr < thisMonday.toISOString().split('T')[0] ? 'completed' : 'pending';
 
-    await db.insert(schema.userPlanCalendar).values({
-      id: generateId(),
-      planId: planId,
-      date: dateStr,
-      dailyPlanId: dp.id,
-      status: dateStr < mondayStr ? 'completed' : 'pending',
-    });
+    sqlite.exec(`
+      INSERT INTO user_plan_calendar (id, plan_id, date, daily_plan_id, status)
+      VALUES ('${generateId()}', '${planId}', '${dateStr}', '${dp.id}', '${status}')
+    `);
   }
   console.log('Calendar seeded');
 
@@ -308,30 +295,21 @@ async function seed() {
   yesterday.setDate(today.getDate() - 1);
   const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-  await db.insert(schema.checkInRecord).values({
-    id: generateId(),
-    calendarEntryId: null,
-    date: yesterdayStr,
-    type: 'run',
-    distance: 5.2,
-    duration: 28 * 60,
-    pace: 323,
-    feeling: 'easy',
-    createdAt: now(),
-  });
+  sqlite.exec(`
+    INSERT INTO check_in_record (id, calendar_entry_id, date, type, distance, duration, pace, feeling, created_at)
+    VALUES ('${generateId()}', NULL, '${yesterdayStr}', 'run', 5.2, 1680, 323, 'easy', '${now()}')
+  `);
 
-  await db.insert(schema.checkInDailyOverview).values({
-    id: generateId(),
-    date: yesterdayStr,
-    hasCheckIn: true,
-  }).onConflictDoNothing();
+  sqlite.exec(`
+    INSERT OR IGNORE INTO check_in_daily_overview (id, date, has_check_in)
+    VALUES ('${generateId()}', '${yesterdayStr}', 1)
+  `);
 
   const todayStr = today.toISOString().split('T')[0];
-  await db.insert(schema.checkInDailyOverview).values({
-    id: generateId(),
-    date: todayStr,
-    hasCheckIn: false,
-  }).onConflictDoNothing();
+  sqlite.exec(`
+    INSERT OR IGNORE INTO check_in_daily_overview (id, date, has_check_in)
+    VALUES ('${generateId()}', '${todayStr}', 0)
+  `);
 
   console.log('Check-in records seeded');
 
@@ -340,32 +318,35 @@ async function seed() {
   // ============================================================================
   console.log('\n=== Verification ===');
 
-  const userData = await db.query.user.findFirst();
+  const userData = sqlite.prepare('SELECT * FROM user WHERE id = ?').get('local');
   console.log('User:', userData);
 
-  const plans = await db.query.plan.findMany();
+  const plans = sqlite.prepare('SELECT * FROM plan').all();
   console.log('Plans count:', plans.length);
 
-  const weeklyPlans = await db.query.weeklyPlan.findMany();
+  const weeklyPlans = sqlite.prepare('SELECT * FROM weekly_plan').all();
   console.log('Weekly plans count:', weeklyPlans.length);
 
-  const dailyPlans = await db.query.dailyPlan.findMany();
+  const dailyPlans = sqlite.prepare('SELECT * FROM daily_plan').all();
   console.log('Daily plans count:', dailyPlans.length);
 
-  const units = await db.query.unit.findMany();
+  const units = sqlite.prepare('SELECT * FROM unit').all();
   console.log('Units count:', units.length);
 
-  const calendarEntries = await db.query.userPlanCalendar.findMany();
+  const calendarEntries = sqlite.prepare('SELECT * FROM user_plan_calendar').all();
   console.log('Calendar entries count:', calendarEntries.length);
 
-  const checkInRecords = await db.query.checkInRecord.findMany();
+  const checkInRecords = sqlite.prepare('SELECT * FROM check_in_record').all();
   console.log('Check-in records count:', checkInRecords.length);
 
-  const dailyOverviews = await db.query.checkInDailyOverview.findMany();
+  const dailyOverviews = sqlite.prepare('SELECT * FROM check_in_daily_overview').all();
   console.log('Daily overviews count:', dailyOverviews.length);
 
   console.log('\n✅ Database seed completed successfully!');
   console.log(`Database file: ${DATABASE_NAME}`);
+
+  // Close database
+  sqlite.close();
 }
 
 seed().catch(console.error);
