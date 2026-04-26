@@ -104,3 +104,15 @@ export const checkInDailyOverview = sqliteTable('check_in_daily_overview', {
   date: text('date').notNull().unique(), // YYYY-MM-DD
   hasCheckIn: integer('has_check_in', { mode: 'boolean' }).notNull().default(false),
 });
+
+// ============================================================================
+// Template Table
+// ============================================================================
+
+export const template = sqliteTable('template', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  dailyPlanId: text('daily_plan_id').references(() => dailyPlan.id).notNull(),
+  usageCount: integer('usage_count').notNull().default(0),
+  createdAt: text('created_at').notNull(),
+});
