@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ruff API 测试</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Ruff API 测试</h1>
+    <p class="subtitle">本地优先跑步训练追踪应用 - 模块验证</p>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="vdot">VDOT</button>
+      <button class="tab" data-tab="plan">计划</button>
+      <button class="tab" data-tab="calendar">日历</button>
+      <button class="tab" data-tab="training">训练</button>
+      <button class="tab" data-tab="checkin">打卡</button>
+      <button class="tab" data-tab="user">用户</button>
+      <button class="tab" data-tab="history">历史</button>
+      <button class="tab" data-tab="data">数据</button>
+    </div>
+
+    <div id="tab-vdot" class="section"></div>
+    <div id="tab-plan" class="section hidden"></div>
+    <div id="tab-calendar" class="section hidden"></div>
+    <div id="tab-training" class="section hidden"></div>
+    <div id="tab-checkin" class="section hidden"></div>
+    <div id="tab-user" class="section hidden"></div>
+    <div id="tab-history" class="section hidden"></div>
+    <div id="tab-data" class="section hidden"></div>
+  </div>
+
+  <script src="components/api.js"></script>
+  <script src="components/vdot.js"></script>
+  <script src="components/plan.js"></script>
+  <script src="components/calendar.js"></script>
+  <script src="components/training.js"></script>
+  <script src="components/checkin.js"></script>
+  <script src="components/user.js"></script>
+  <script src="components/history.js"></script>
+  <script src="components/data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
