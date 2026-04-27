@@ -28,21 +28,6 @@
     },
     "plugins": [
       "expo-sqlite",
-      [
-        "expo-font",
-        {
-          "fonts": [
-            "node_modules/@expo-google-fonts/lexend/build/Lexend-Regular.ttf",
-            "node_modules/@expo-google-fonts/lexend/build/Lexend-Medium.ttf",
-            "node_modules/@expo-google-fonts/lexend/build/Lexend-SemiBold.ttf",
-            "node_modules/@expo-google-fonts/lexend/build/Lexend-Bold.ttf",
-            "node_modules/@expo-google-fonts/manrope/build/Manrope-Regular.ttf",
-            "node_modules/@expo-google-fonts/manrope/build/Manrope-Medium.ttf",
-            "node_modules/@expo-google-fonts/manrope/build/Manrope-SemiBold.ttf",
-            "node_modules/@expo-google-fonts/manrope/build/Manrope-Bold.ttf"
-          ]
-        }
-      ],
       "expo-router"
     ]
   }

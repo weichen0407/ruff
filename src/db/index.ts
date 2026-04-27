@@ -1,12 +1,14 @@
-import { drizzle } from 'drizzle-orm/expo-sqlite';
-import * as SQLite from 'expo-sqlite';
+/**
+ * Database exports
+ *
+ * Use `db` for direct queries (lazy-loaded).
+ * Call `getDatabase()` at app startup to run migrations.
+ */
+
+export { db, getDatabase, closeDatabase } from './database';
+
 import * as schema from './schema';
-
-const sqlite = SQLite.openDatabaseSync('ruff.db');
-
-export const db = drizzle(sqlite, { schema });
-
-// Export schema for convenience
 export { schema };
+
 export * from './schema';
 export * from './schema/types';

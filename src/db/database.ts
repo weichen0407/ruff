@@ -1,6 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 import { drizzle } from 'drizzle-orm/expo-sqlite';
-import { migrate, useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
+import { migrate } from 'drizzle-orm/expo-sqlite/migrator';
 import * as schema from './schema';
 
 const DATABASE_NAME = 'ruff.db';
@@ -115,52 +115,55 @@ const journal = {
 };
 
 let dbInstance: ReturnType<typeof drizzle<typeof schema>> | null = null;
+let initPromise: Promise<ReturnType<typeof drizzle<typeof schema>>> | null = null;
+
+async function openDb() {
+  const sqlite = await SQLite.openDatabaseAsync(DATABASE_NAME);
+  return drizzle(sqlite, { schema });
+}
 
 /**
- * Get or create the database instance
- * This should be called once at app startup
+ * Get or create the database instance.
+ * Runs migrations on first call.
  */
 export async function getDatabase() {
-  if (dbInstance) {
-    return dbInstance;
+  if (initPromise) {
+    return initPromise;
   }
 
-  const sqlite = SQLite.openDatabaseSync(DATABASE_NAME);
-  dbInstance = drizzle(sqlite, { schema });
+  initPromise = (async () => {
+    if (!dbInstance) {
+      dbInstance = await openDb();
+    }
+    await migrate(dbInstance, { journal, migrations });
+    console.log('Database migrations applied successfully');
+    return dbInstance;
+  })();
 
-  // Run migrations on first open
-  await runMigrations(dbInstance);
-
-  return dbInstance;
+  return initPromise;
 }
 
 /**
- * Run database migrations
+ * Lazy-loaded drizzle database instance.
+ * Accessing any property will trigger initialization.
+ * For app startup, call getDatabase() explicitly.
  */
-async function runMigrations(db: ReturnType<typeof drizzle<typeof schema>>) {
-  // Use useMigrations for expo-sqlite
-  const { success, error } = useMigrations(db, { journal, migrations });
-
-  if (error) {
-    console.error('Migration failed:', error);
-    throw error;
-  }
-
-  if (success) {
-    console.log('Database migrations applied successfully');
-  }
-}
+export const db = new Proxy({} as ReturnType<typeof drizzle<typeof schema>>, {
+  get(_target, prop) {
+    if (!dbInstance) {
+      throw new Error('Database not initialized. Call getDatabase() first.');
+    }
+    return dbInstance[prop as keyof typeof dbInstance];
+  },
+}) as ReturnType<typeof drizzle<typeof schema>>;
 
 /**
  * Close database connection
- * Should be called when app is shutting down
  */
 export async function closeDatabase() {
   if (dbInstance) {
     // expo-sqlite doesn't require explicit close
     dbInstance = null;
   }
+  initPromise = null;
 }
-
-// Re-export db getter for use in other modules
-export { getDatabase as db };
