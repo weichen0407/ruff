@@ -1,13 +1,10 @@
 import * as SQLite from 'expo-sqlite';
 import { drizzle } from 'drizzle-orm/expo-sqlite';
-import { migrate } from 'drizzle-orm/expo-sqlite/migrator';
 import * as schema from './schema';
 
 const DATABASE_NAME = 'ruff.db';
 
-// Migration SQL
-const migrations = {
-  '0000_init': `-- Migration: 0000_init
+const INIT_SQL = `
 CREATE TABLE IF NOT EXISTS \`user\` (
   \`id\` text PRIMARY KEY DEFAULT 'local',
   \`running_goal_distance\` text,
@@ -99,32 +96,20 @@ CREATE INDEX IF NOT EXISTS \`idx_user_plan_calendar_plan_id\` ON \`user_plan_cal
 CREATE INDEX IF NOT EXISTS \`idx_user_plan_calendar_date\` ON \`user_plan_calendar\`(\`date\`);
 CREATE INDEX IF NOT EXISTS \`idx_check_in_record_date\` ON \`check_in_record\`(\`date\`);
 CREATE INDEX IF NOT EXISTS \`idx_check_in_record_calendar_entry_id\` ON \`check_in_record\`(\`calendar_entry_id\`);
-`,
-};
-
-const journal = {
-  entries: [
-    {
-      idx: 0,
-      version: '7' as const,
-      when: 1745529600000,
-      tag: '0000_init',
-      breakpoints: true,
-    },
-  ],
-};
+`;
 
 let dbInstance: ReturnType<typeof drizzle<typeof schema>> | null = null;
 let initPromise: Promise<ReturnType<typeof drizzle<typeof schema>>> | null = null;
 
-async function openDb() {
+async function openDb(): Promise<ReturnType<typeof drizzle<typeof schema>>> {
   const sqlite = await SQLite.openDatabaseAsync(DATABASE_NAME);
+  await sqlite.execAsync(INIT_SQL);
   return drizzle(sqlite, { schema });
 }
 
 /**
  * Get or create the database instance.
- * Runs migrations on first call.
+ * Initializes schema on first call.
  */
 export async function getDatabase() {
   if (initPromise) {
@@ -132,11 +117,8 @@ export async function getDatabase() {
   }
 
   initPromise = (async () => {
-    if (!dbInstance) {
-      dbInstance = await openDb();
-    }
-    await migrate(dbInstance, { journal, migrations });
-    console.log('Database migrations applied successfully');
+    dbInstance = await openDb();
+    console.log('Database initialized successfully');
     return dbInstance;
   })();
 
@@ -162,7 +144,6 @@ export const db = new Proxy({} as ReturnType<typeof drizzle<typeof schema>>, {
  */
 export async function closeDatabase() {
   if (dbInstance) {
-    // expo-sqlite doesn't require explicit close
     dbInstance = null;
   }
   initPromise = null;
