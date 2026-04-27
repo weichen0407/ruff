@@ -4,6 +4,7 @@
  */
 
 import { View, Text, StyleSheet } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { PlatformColor } from 'react-native';
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from '@/constants/themes';
 import type { PlanInfo } from './types';
@@ -15,7 +16,7 @@ interface Props {
 
 export default function CurrentPlanCard({ plan }: Props) {
   return (
-    <View style={styles.card}>
+    <Animated.View style={styles.card} entering={FadeIn}>
       <Text style={styles.name}>{plan.name}</Text>
 
       <View style={styles.row}>
@@ -29,15 +30,12 @@ export default function CurrentPlanCard({ plan }: Props) {
           <Text style={styles.statLabel}>周期</Text>
           <Text style={styles.statValue}>{plan.weeks} 周</Text>
         </View>
+        <View style={styles.vdotBadge}>
+          <Text style={styles.vdotLabel}>VDOT</Text>
+          <Text style={styles.vdotValue}>{plan.vdot}</Text>
+        </View>
       </View>
-
-      <View style={styles.vdotBadge}>
-        <Text style={styles.vdotLabel}>VDOT</Text>
-        <Text style={styles.vdotValue}>{plan.vdot}</Text>
-      </View>
-
-      {plan.desc && <Text style={styles.desc}>{plan.desc}</Text>}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -47,6 +45,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
     gap: SPACING.md,
+    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
   },
   name: {
     ...TYPOGRAPHY.title1,
@@ -54,7 +53,8 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    gap: SPACING.xl,
+    alignItems: 'center',
+    gap: SPACING.lg,
   },
   stat: {
     gap: SPACING.xs,
@@ -70,12 +70,12 @@ const styles = StyleSheet.create({
   vdotBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
-    backgroundColor: PlatformColor('tertiarySystemBackground'),
+    gap: SPACING.xs,
+    backgroundColor: COLORS.primaryMuted,
     paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.md,
-    alignSelf: 'flex-start',
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.sm,
+    marginLeft: 'auto',
   },
   vdotLabel: {
     ...TYPOGRAPHY.footnote,
@@ -83,11 +83,6 @@ const styles = StyleSheet.create({
   },
   vdotValue: {
     ...TYPOGRAPHY.headline,
-    color: PlatformColor('label'),
-  },
-  desc: {
-    ...TYPOGRAPHY.body,
-    color: PlatformColor('secondaryLabel'),
-    marginTop: SPACING.xs,
+    color: COLORS.primary,
   },
 });

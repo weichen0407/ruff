@@ -4,6 +4,7 @@
  */
 
 import { View, Text, StyleSheet } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { PlatformColor } from 'react-native';
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from '@/constants/themes';
 import type { PaceMode } from './types';
@@ -20,11 +21,11 @@ interface Props {
 }
 
 const PACE_LABELS: Record<PaceMode, string> = {
-  E: 'E (轻松)',
-  M: 'M (马拉松)',
-  T: 'T (阈值)',
-  I: 'I (间歇)',
-  R: 'R (重复)',
+  E: 'E',
+  M: 'M',
+  T: 'T',
+  I: 'I',
+  R: 'R',
 };
 
 export default function PaceTable({ paces }: Props) {
@@ -37,18 +38,19 @@ export default function PaceTable({ paces }: Props) {
   ];
 
   return (
-    <View style={styles.container}>
+    <Animated.View style={styles.container} entering={FadeIn.delay(100)}>
       <Text style={styles.title}>配速表</Text>
       <View style={styles.table}>
         {paceEntries.map(({ key, value }) => (
-          <View key={key} style={styles.row}>
-            <Text style={styles.paceName}>{key}</Text>
-            <Text style={styles.paceLabel}>{PACE_LABELS[key]}</Text>
-            <Text style={styles.paceValue}>{formatPace(value)}/km</Text>
+          <View key={key} style={styles.paceItem}>
+            <View style={styles.circle}>
+              <Text style={styles.circleLetter}>{key}</Text>
+            </View>
+            <Text style={styles.paceValue}>{formatPace(value)}</Text>
           </View>
         ))}
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -57,32 +59,35 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   title: {
-    ...TYPOGRAPHY.headline,
+    ...TYPOGRAPHY.title3,
     color: PlatformColor('label'),
   },
   table: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
     backgroundColor: PlatformColor('secondarySystemBackground'),
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
-    gap: SPACING.sm,
   },
-  row: {
-    flexDirection: 'row',
+  paceItem: {
     alignItems: 'center',
-    paddingVertical: SPACING.sm,
+    gap: SPACING.xs,
   },
-  paceName: {
+  circle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: "0 2px 4px rgba(255, 149, 0, 0.3)",
+  },
+  circleLetter: {
     ...TYPOGRAPHY.headline,
-    color: PlatformColor('systemOrange'),
-    width: 24,
-  },
-  paceLabel: {
-    ...TYPOGRAPHY.subhead,
-    color: PlatformColor('secondaryLabel'),
-    flex: 1,
+    color: '#FFFFFF',
   },
   paceValue: {
-    ...TYPOGRAPHY.headline,
+    ...TYPOGRAPHY.subhead,
     color: PlatformColor('label'),
     fontVariant: ['tabular-nums'],
   },

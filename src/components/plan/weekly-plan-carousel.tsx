@@ -6,7 +6,7 @@
 import { useRef, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, Dimensions } from 'react-native';
 import { PlatformColor } from 'react-native';
-import { SPACING, TYPOGRAPHY } from '@/constants/themes';
+import { SPACING, TYPOGRAPHY, RADIUS } from '@/constants/themes';
 import type { WeekPlan } from './types';
 import DailyPlanCard from './daily-plan-card';
 
@@ -16,8 +16,9 @@ interface Props {
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const DAY_CARD_WIDTH = 150;
-const CARD_GAP = SPACING.md;
+const DAY_CARD_WIDTH = Math.floor(SCREEN_WIDTH * 0.44);
+const CARD_GAP = 20;
+const WEEK_CARD_WIDTH = Math.floor(SCREEN_WIDTH * 0.92);
 
 export default function WeeklyPlanCarousel({ weeks, currentWeekIndex = 1 }: Props) {
   const flatListRef = useRef<FlatList>(null);
@@ -34,7 +35,7 @@ export default function WeeklyPlanCarousel({ weeks, currentWeekIndex = 1 }: Prop
     itemVisiblePercentThreshold: 50,
   }).current;
 
-  const renderWeek = ({ item, index }: { item: WeekPlan; index: number }) => {
+  const renderWeek = ({ item }: { item: WeekPlan }) => {
     const todayDayIndex = new Date().getDay();
     const adjustedToday = todayDayIndex === 0 ? 7 : todayDayIndex;
 
@@ -42,21 +43,21 @@ export default function WeeklyPlanCarousel({ weeks, currentWeekIndex = 1 }: Prop
       <View style={styles.weekContainer}>
         <View style={styles.weekHeader}>
           <Text style={styles.weekTitle}>第 {item.weekIndex} 周</Text>
-          {item.desc && <Text style={styles.weekDesc}>{item.desc}</Text>}
         </View>
         <FlatList
           horizontal
           data={item.days}
           keyExtractor={(day) => day.dayIndex.toString()}
-          renderItem={({ item: day }) => (
-            <DailyPlanCard
-              dayPlan={day}
-              isToday={item.weekIndex === currentWeekIndex && day.dayIndex === adjustedToday}
-            />
+          renderItem={({ item: day, index }) => (
+            <View style={index < item.days.length - 1 ? { marginRight: CARD_GAP } : undefined}>
+              <DailyPlanCard
+                dayPlan={day}
+                isToday={item.weekIndex === currentWeekIndex && day.dayIndex === adjustedToday}
+              />
+            </View>
           )}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.daysContainer}
-          ItemSeparatorComponent={() => <View style={{ width: CARD_GAP }} />}
         />
       </View>
     );
@@ -78,7 +79,6 @@ export default function WeeklyPlanCarousel({ weeks, currentWeekIndex = 1 }: Prop
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        snapToInterval={SCREEN_WIDTH}
         decelerationRate="fast"
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
@@ -96,21 +96,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: SPACING.md,
   },
   title: {
-    ...TYPOGRAPHY.headline,
+    ...TYPOGRAPHY.title3,
     color: PlatformColor('label'),
   },
   weekIndicator: {
-    ...TYPOGRAPHY.subhead,
+    ...TYPOGRAPHY.footnote,
     color: PlatformColor('secondaryLabel'),
+    backgroundColor: PlatformColor('tertiarySystemBackground'),
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.sm,
   },
   carouselContent: {
     paddingHorizontal: SPACING.md,
   },
   weekContainer: {
-    width: SCREEN_WIDTH - SPACING.md * 2,
+    width: WEEK_CARD_WIDTH,
     gap: SPACING.sm,
   },
   weekHeader: {
@@ -122,11 +125,8 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.subhead,
     color: PlatformColor('secondaryLabel'),
   },
-  weekDesc: {
-    ...TYPOGRAPHY.caption1,
-    color: PlatformColor('tertiaryLabel'),
-  },
   daysContainer: {
     paddingVertical: SPACING.sm,
+    width: WEEK_CARD_WIDTH,
   },
 });
