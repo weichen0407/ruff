@@ -57,6 +57,7 @@ export default function PaceTable({ paces }: Props) {
 const styles = StyleSheet.create({
   container: {
     gap: SPACING.sm,
+    paddingLeft: SPACING.md,
   },
   title: {
     ...TYPOGRAPHY.title3,

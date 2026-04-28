@@ -29,13 +29,31 @@ export default function PlanScreen() {
   const handleSave = async (name: string, units: any[], isFavorite: boolean) => {
     await getDatabase();
 
+    // Create the plan record first
+    const planId = generateId();
+    await db.insert(schema.plan).values({
+      id: planId,
+      name,
+      targetDistance: '5k',
+      targetTime: 0,
+      vdot: 0,
+      paceE: 0,
+      paceM: 0,
+      paceT: 0,
+      paceI: 0,
+      paceR: 0,
+      weeks: 1,
+      createdAt: now(),
+      updatedAt: now(),
+    });
+
     // Create standalone weekly plan
     const standaloneWpId = generateId();
     await db.insert(schema.weeklyPlan).values({
       id: standaloneWpId,
-      planId: 'standalone',
-      weekIndex: 0,
-      desc: 'Standalone Daily Plans',
+      planId,
+      weekIndex: 1,
+      desc: name,
     });
 
     // Create daily plan

@@ -1,16 +1,16 @@
 /**
  * DailyPlanCard Component
- * Shows a single day's training plan
+ * Shows a single day's training plan within WeeklyPlanCarousel
  */
 
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { PlatformColor } from 'react-native';
-import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from '@/constants/themes';
+import { SPACING, TYPOGRAPHY, RADIUS } from '@/constants/themes';
 import type { DayPlan } from './types';
-import { formatPace, formatDuration } from './queries';
+import { formatDuration } from './queries';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const DAY_CARD_WIDTH = Math.floor(SCREEN_WIDTH * 0.77);
+const DAY_CARD_WIDTH = Math.floor(SCREEN_WIDTH * 0.48);
 
 interface Props {
   dayPlan: DayPlan;
@@ -75,17 +75,15 @@ export default function DailyPlanCard({ dayPlan, isToday }: Props) {
         {isToday && <View style={styles.todayBadge}><Text style={styles.todayText}>今天</Text></View>}
       </View>
 
-      <View style={styles.content}>
-        <View style={styles.units}>
-          {units.length === 0 ? (
-            <Text style={styles.noPlan}>暂无计划</Text>
-          ) : (
-            units.map((unit, i) => renderUnit(unit, i))
-          )}
-        </View>
-
-        {desc && <Text style={styles.dayDesc}>{desc}</Text>}
+      <View style={styles.units}>
+        {units.length === 0 ? (
+          <Text style={styles.noPlan}>暂无计划</Text>
+        ) : (
+          units.map((unit, i) => renderUnit(unit, i))
+        )}
       </View>
+
+      {desc && <Text style={styles.dayDesc}>{desc}</Text>}
     </View>
   );
 }
@@ -96,8 +94,8 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
     width: DAY_CARD_WIDTH,
-    minHeight: 100,
-    gap: SPACING.sm,
+    minHeight: 140,
+    gap: SPACING.md,
     boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
   },
   cardToday: {
@@ -127,11 +125,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
   },
-  content: {
-    gap: SPACING.xs,
-  },
   units: {
-    gap: SPACING.xs,
+    gap: SPACING.sm,
   },
   unit: {
     flexDirection: 'row',
@@ -139,9 +134,9 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
   },
   unitDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   unitMain: {
     ...TYPOGRAPHY.subhead,

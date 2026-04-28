@@ -1,24 +1,134 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView, Text, Pressable, Modal } from 'react-native';
 import { PlatformColor } from 'react-native';
 import { SPACING, TYPOGRAPHY, RADIUS, COLORS } from '../../constants/themes';
-import { CheckInTriangle, CreatePlanSheet } from '../../components/checkin';
+import { CheckInTriangle, CreatePlanSheet, TodayPlanCard } from '../../components/checkin';
 import { generateId, now } from '../../db/utils';
 import { db, getDatabase, schema } from '../../db';
+import { eq } from 'drizzle-orm';
+
+interface TodayPlan {
+  planName: string;
+  dailyPlanDesc: string;
+  isCompleted: boolean;
+  calendarEntryId: string;
+  units: Array<{
+    id: string;
+    type: 'run' | 'rest' | 'other';
+    paceMode: string | null;
+    paceValue: string | null;
+    standardType: 'time' | 'distance' | null;
+    standardValue: number | null;
+    content: string | null;
+  }>;
+}
 
 export default function TrackScreen() {
   const [showCreateSheet, setShowCreateSheet] = useState(false);
+  const [todayPlan, setTodayPlan] = useState<TodayPlan | null>(null);
+
+  useEffect(() => {
+    loadTodayPlan();
+  }, []);
+
+  const loadTodayPlan = async () => {
+    await getDatabase();
+
+    const today = new Date();
+    const todayStr = today.getFullYear() + '-' +
+      String(today.getMonth() + 1).padStart(2, '0') + '-' +
+      String(today.getDate()).padStart(2, '0');
+
+    const entries = await db.select()
+      .from(schema.userPlanCalendar)
+      .where(eq(schema.userPlanCalendar.date, todayStr))
+      .limit(1);
+
+    if (entries.length === 0) {
+      setTodayPlan(null);
+      return;
+    }
+
+    const entry = entries[0];
+
+    const dailyPlans = await db.select()
+      .from(schema.dailyPlan)
+      .where(eq(schema.dailyPlan.id, entry.dailyPlanId))
+      .limit(1);
+
+    if (dailyPlans.length === 0) {
+      setTodayPlan(null);
+      return;
+    }
+
+    const dailyPlan = dailyPlans[0];
+
+    const units = await db.select()
+      .from(schema.unit)
+      .where(eq(schema.unit.dailyPlanId, dailyPlan.id));
+
+    const plans = await db.select()
+      .from(schema.plan)
+      .where(eq(schema.plan.id, entry.planId))
+      .limit(1);
+
+    setTodayPlan({
+      planName: plans.length > 0 ? plans[0].name : '训练计划',
+      dailyPlanDesc: dailyPlan.desc || '',
+      isCompleted: entry.status === 'completed',
+      calendarEntryId: entry.id,
+      units: units.map(u => ({
+        id: u.id,
+        type: u.type as 'run' | 'rest' | 'other',
+        paceMode: u.paceMode,
+        paceValue: u.paceValue,
+        standardType: u.standardType as 'time' | 'distance' | null,
+        standardValue: u.standardValue,
+        content: u.content,
+      })),
+    });
+  };
+
+  const handleToggleComplete = async () => {
+    if (!todayPlan) return;
+    await getDatabase();
+
+    const newStatus = todayPlan.isCompleted ? 'pending' : 'completed';
+    await db.update(schema.userPlanCalendar)
+      .set({ status: newStatus as any })
+      .where(eq(schema.userPlanCalendar.id, todayPlan.calendarEntryId));
+
+    loadTodayPlan();
+  };
 
   const handleSave = async (name: string, units: any[], isFavorite: boolean) => {
     await getDatabase();
+
+    // Create the plan record first
+    const planId = generateId();
+    await db.insert(schema.plan).values({
+      id: planId,
+      name,
+      targetDistance: '5k',
+      targetTime: 0,
+      vdot: 0,
+      paceE: 0,
+      paceM: 0,
+      paceT: 0,
+      paceI: 0,
+      paceR: 0,
+      weeks: 1,
+      createdAt: now(),
+      updatedAt: now(),
+    });
 
     // Create standalone weekly plan
     const standaloneWpId = generateId();
     await db.insert(schema.weeklyPlan).values({
       id: standaloneWpId,
-      planId: 'standalone',
-      weekIndex: 0,
-      desc: 'Standalone Daily Plans',
+      planId,
+      weekIndex: 1,
+      desc: name,
     });
 
     // Create daily plan
@@ -30,7 +140,19 @@ export default function TrackScreen() {
       desc: name,
     });
 
-    // Create units
+    // Create calendar entry for today
+    const today = new Date();
+    const todayStr = today.getFullYear() + '-' +
+      String(today.getMonth() + 1).padStart(2, '0') + '-' +
+      String(today.getDate()).padStart(2, '0');
+    await db.insert(schema.userPlanCalendar).values({
+      id: generateId(),
+      planId,
+      dailyPlanId,
+      date: todayStr,
+      status: 'pending',
+    });
+
     for (let i = 0; i < units.length; i++) {
       const u = units[i];
       await db.insert(schema.unit).values({
@@ -46,7 +168,6 @@ export default function TrackScreen() {
       });
     }
 
-    // Save to favorites if needed
     if (isFavorite) {
       await db.insert(schema.userFavorite).values({
         id: generateId(),
@@ -57,6 +178,12 @@ export default function TrackScreen() {
     }
 
     setShowCreateSheet(false);
+    loadTodayPlan();
+  };
+
+  const getDayName = () => {
+    const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    return days[new Date().getDay()];
   };
 
   return (
@@ -68,7 +195,27 @@ export default function TrackScreen() {
       >
         <View style={styles.header}>
           <Text style={styles.title}>打卡</Text>
-          <Text style={styles.date}>2024年4月28日</Text>
+          <Text style={styles.date}>
+            {new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}
+          </Text>
+        </View>
+
+        {/* Today's Plan Card */}
+        <View style={styles.todaySection}>
+          <Text style={styles.sectionTitle}>今日计划</Text>
+          {todayPlan ? (
+            <TodayPlanCard
+              dayName={getDayName()}
+              planName={todayPlan.planName}
+              units={todayPlan.units}
+              isCompleted={todayPlan.isCompleted}
+              onToggleComplete={handleToggleComplete}
+            />
+          ) : (
+            <View style={styles.noPlanCard}>
+              <Text style={styles.noPlanText}>今日暂无训练计划</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.content}>
@@ -113,6 +260,23 @@ const styles = StyleSheet.create({
   date: {
     ...TYPOGRAPHY.subhead,
     color: PlatformColor('secondaryLabel'),
+  },
+  todaySection: {
+    gap: SPACING.sm,
+  },
+  sectionTitle: {
+    ...TYPOGRAPHY.headline,
+    color: PlatformColor('label'),
+  },
+  noPlanCard: {
+    backgroundColor: PlatformColor('secondarySystemBackground'),
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    alignItems: 'center',
+  },
+  noPlanText: {
+    ...TYPOGRAPHY.body,
+    color: PlatformColor('tertiaryLabel'),
   },
   content: {
     flex: 1,

@@ -45,10 +45,11 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
     gap: SPACING.md,
+    marginLeft: SPACING.md,
     boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
   },
   name: {
-    ...TYPOGRAPHY.title1,
+    ...TYPOGRAPHY.title2,
     color: PlatformColor('label'),
   },
   row: {

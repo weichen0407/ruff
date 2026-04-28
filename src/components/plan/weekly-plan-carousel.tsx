@@ -96,6 +96,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingLeft: SPACING.md,
   },
   title: {
     ...TYPOGRAPHY.title3,
@@ -119,7 +120,8 @@ const styles = StyleSheet.create({
   weekHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
+    justifyContent: 'flex-start',
+    paddingLeft: SPACING.sm,
   },
   weekTitle: {
     ...TYPOGRAPHY.subhead,
