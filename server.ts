@@ -115,6 +115,13 @@ function initDb() {
       "usage_count" integer NOT NULL DEFAULT 0,
       "created_at" text NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS "user_favorite" (
+      "id" text PRIMARY KEY,
+      "name" text NOT NULL,
+      "units" text NOT NULL,
+      "created_at" text NOT NULL
+    );
   `);
 }
 
@@ -1001,6 +1008,27 @@ const routes: Record<string, RouteHandler> = {
     sqlite.query('DELETE FROM template WHERE id = ?').run(templateId);
     return Response.json({ success: true });
   },
+
+  // User Favorites
+  'GET /api/user-favorites': async () => {
+    const favorites = sqlite.query('SELECT * FROM user_favorite ORDER BY created_at DESC').all();
+    return Response.json({ favorites });
+  },
+
+  'POST /api/user-favorite': async (req) => {
+    const { name, units } = await req.json();
+    const id = generateId();
+    const nowStr = now();
+    sqlite.query('INSERT INTO user_favorite (id, name, units, created_at) VALUES (?, ?, ?, ?)').run(id, name, JSON.stringify(units), nowStr);
+    return Response.json({ success: true, id, name, units });
+  },
+
+  'DELETE /api/user-favorite': async (_req, url) => {
+    const id = url.searchParams.get('id');
+    if (!id) return Response.json({ error: 'id required' }, { status: 400 });
+    sqlite.query('DELETE FROM user_favorite WHERE id = ?').run(id);
+    return Response.json({ success: true });
+  },
 };
 
 // ============================================================================
@@ -1158,6 +1186,17 @@ const server = Bun.serve({
         const templateId = path.split('/')[3];
         url.searchParams.set('id', templateId);
         return routes['GET /api/template'](req, url);
+      }
+      if (path === '/api/user-favorites' && method === 'GET') {
+        return routes['GET /api/user-favorites'](req, url);
+      }
+      if (path === '/api/user-favorite' && method === 'POST') {
+        return routes['POST /api/user-favorite'](req, url);
+      }
+      if (path.startsWith('/api/user-favorite/') && method === 'DELETE') {
+        const id = path.split('/')[3];
+        url.searchParams.set('id', id);
+        return routes['DELETE /api/user-favorite'](req, url);
       }
 
       return Response.json({ error: 'Not found' }, { status: 404, headers });

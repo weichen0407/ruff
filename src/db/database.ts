@@ -96,6 +96,13 @@ CREATE INDEX IF NOT EXISTS \`idx_user_plan_calendar_plan_id\` ON \`user_plan_cal
 CREATE INDEX IF NOT EXISTS \`idx_user_plan_calendar_date\` ON \`user_plan_calendar\`(\`date\`);
 CREATE INDEX IF NOT EXISTS \`idx_check_in_record_date\` ON \`check_in_record\`(\`date\`);
 CREATE INDEX IF NOT EXISTS \`idx_check_in_record_calendar_entry_id\` ON \`check_in_record\`(\`calendar_entry_id\`);
+
+CREATE TABLE IF NOT EXISTS \`user_favorite\` (
+  \`id\` text PRIMARY KEY,
+  \`name\` text NOT NULL,
+  \`units\` text NOT NULL,
+  \`created_at\` text NOT NULL
+);
 `;
 
 let dbInstance: ReturnType<typeof drizzle<typeof schema>> | null = null;

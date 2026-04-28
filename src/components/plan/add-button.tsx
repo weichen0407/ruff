@@ -3,8 +3,7 @@
  * + button for creating new items using SF Symbol
  */
 
-import { Pressable, StyleSheet } from 'react-native';
-import { SymbolView } from 'expo-symbols';
+import { Pressable, StyleSheet, Text } from 'react-native';
 import { COLORS } from '@/constants/themes';
 
 interface Props {
@@ -20,12 +19,7 @@ export default function AddButton({ onPress }: Props) {
       ]}
       onPress={onPress}
     >
-      <SymbolView
-        name="plus"
-        size={20}
-        tintColor="#FFFFFF"
-        weight="regular"
-      />
+      <Text style={styles.plus}>+</Text>
     </Pressable>
   );
 }
@@ -41,5 +35,11 @@ const styles = StyleSheet.create({
   },
   buttonPressed: {
     opacity: 0.7,
+  },
+  plus: {
+    fontSize: 24,
+    fontWeight: '300',
+    color: '#FFFFFF',
+    marginTop: -2,
   },
 });

@@ -116,3 +116,14 @@ export const template = sqliteTable('template', {
   usageCount: integer('usage_count').notNull().default(0),
   createdAt: text('created_at').notNull(),
 });
+
+// ============================================================================
+// User Favorite Table (用户收藏的训练计划)
+// ============================================================================
+
+export const userFavorite = sqliteTable('user_favorite', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  units: text('units').notNull(), // JSON string of units array
+  createdAt: text('created_at').notNull(),
+});
