@@ -7,7 +7,9 @@ import { generateId, now } from '../../db/utils';
 import { db, getDatabase, schema } from '../../db';
 import { eq } from 'drizzle-orm';
 
-interface TodayPlan {
+interface DayPlan {
+  date: string;
+  dayName: string;
   planName: string;
   dailyPlanDesc: string;
   isCompleted: boolean;
@@ -25,7 +27,7 @@ interface TodayPlan {
 
 export default function TrackScreen() {
   const [showCreateSheet, setShowCreateSheet] = useState(false);
-  const [todayPlan, setTodayPlan] = useState<TodayPlan | null>(null);
+  const [todayPlan, setTodayPlan] = useState<DayPlan | null>(null);
 
   useEffect(() => {
     loadTodayPlan();
@@ -39,42 +41,40 @@ export default function TrackScreen() {
       String(today.getMonth() + 1).padStart(2, '0') + '-' +
       String(today.getDate()).padStart(2, '0');
 
+    const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    const dayName = '今日';
+
     const entries = await db.select()
       .from(schema.userPlanCalendar)
       .where(eq(schema.userPlanCalendar.date, todayStr))
       .limit(1);
 
     if (entries.length === 0) {
-      setTodayPlan(null);
+      setTodayPlan({ date: todayStr, dayName, planName: '', dailyPlanDesc: '今日暂无训练计划', isCompleted: false, calendarEntryId: '', units: [] });
       return;
     }
 
     const entry = entries[0];
+
+    const planRow = await db.select()
+      .from(schema.plan)
+      .where(eq(schema.plan.id, entry.planId))
+      .limit(1);
 
     const dailyPlans = await db.select()
       .from(schema.dailyPlan)
       .where(eq(schema.dailyPlan.id, entry.dailyPlanId))
       .limit(1);
 
-    if (dailyPlans.length === 0) {
-      setTodayPlan(null);
-      return;
-    }
-
-    const dailyPlan = dailyPlans[0];
-
-    const units = await db.select()
-      .from(schema.unit)
-      .where(eq(schema.unit.dailyPlanId, dailyPlan.id));
-
-    const plans = await db.select()
-      .from(schema.plan)
-      .where(eq(schema.plan.id, entry.planId))
-      .limit(1);
+    const units = dailyPlans.length > 0
+      ? await db.select().from(schema.unit).where(eq(schema.unit.dailyPlanId, dailyPlans[0].id))
+      : [];
 
     setTodayPlan({
-      planName: plans.length > 0 ? plans[0].name : '训练计划',
-      dailyPlanDesc: dailyPlan.desc || '',
+      date: todayStr,
+      dayName,
+      planName: planRow.length > 0 ? planRow[0].name : '',
+      dailyPlanDesc: dailyPlans.length > 0 ? (dailyPlans[0].desc || '') : '',
       isCompleted: entry.status === 'completed',
       calendarEntryId: entry.id,
       units: units.map(u => ({
@@ -90,7 +90,7 @@ export default function TrackScreen() {
   };
 
   const handleToggleComplete = async () => {
-    if (!todayPlan) return;
+    if (!todayPlan?.calendarEntryId) return;
     await getDatabase();
 
     const newStatus = todayPlan.isCompleted ? 'pending' : 'completed';
@@ -181,11 +181,6 @@ export default function TrackScreen() {
     loadTodayPlan();
   };
 
-  const getDayName = () => {
-    const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-    return days[new Date().getDay()];
-  };
-
   return (
     <>
       <ScrollView
@@ -205,11 +200,11 @@ export default function TrackScreen() {
           <Text style={styles.sectionTitle}>今日计划</Text>
           {todayPlan ? (
             <TodayPlanCard
-              dayName={getDayName()}
-              planName={todayPlan.planName}
+              dayName={todayPlan.dayName}
+              planName={todayPlan.planName || todayPlan.dailyPlanDesc || '休息日'}
               units={todayPlan.units}
               isCompleted={todayPlan.isCompleted}
-              onToggleComplete={handleToggleComplete}
+              onToggleComplete={todayPlan.calendarEntryId ? handleToggleComplete : undefined}
             />
           ) : (
             <View style={styles.noPlanCard}>

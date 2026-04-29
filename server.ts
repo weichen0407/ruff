@@ -16,6 +16,10 @@ const PORT = 3000;
 const DIST_DIR = './web-test';
 
 // ============================================================================
+// Neon PostgreSQL (Plan Square)
+// ============================================================================
+
+// ============================================================================
 // Database Setup
 // ============================================================================
 
@@ -122,10 +126,214 @@ function initDb() {
       "units" text NOT NULL,
       "created_at" text NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS "cloud_user" (
+      "id" text PRIMARY KEY,
+      "apple_user_id" text UNIQUE,
+      "email" text,
+      "created_at" text NOT NULL,
+      "updated_at" text NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS "backup" (
+      "id" text PRIMARY KEY,
+      "user_id" text NOT NULL,
+      "data" text NOT NULL,
+      "created_at" text NOT NULL,
+      "updated_at" text NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS "plan_square" (
+      "id" text PRIMARY KEY,
+      "name" text NOT NULL,
+      "target_distance" text NOT NULL,
+      "target_time" integer NOT NULL,
+      "vdot" real NOT NULL,
+      "pace_e" integer NOT NULL,
+      "pace_m" integer NOT NULL,
+      "pace_t" integer NOT NULL,
+      "pace_i" integer NOT NULL,
+      "pace_r" integer NOT NULL,
+      "weeks" integer NOT NULL,
+      "plan_desc" text,
+      "created_at" text NOT NULL,
+      "updated_at" text NOT NULL,
+      "is_active" integer NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS "plan_square_weekly" (
+      "id" text PRIMARY KEY,
+      "plan_id" text NOT NULL,
+      "week_index" integer NOT NULL,
+      "week_desc" text
+    );
+
+    CREATE TABLE IF NOT EXISTS "plan_square_daily" (
+      "id" text PRIMARY KEY,
+      "weekly_plan_id" text NOT NULL,
+      "day_index" integer NOT NULL,
+      "day_desc" text
+    );
+
+    CREATE TABLE IF NOT EXISTS "plan_square_unit" (
+      "id" text PRIMARY KEY,
+      "daily_plan_id" text NOT NULL,
+      "type" text NOT NULL,
+      "order_index" integer NOT NULL,
+      "pace_mode" text,
+      "pace_value" text,
+      "standard_type" text,
+      "standard_value" integer,
+      "standard" text,
+      "content" text
+    );
   `);
 }
 
 initDb();
+
+// Seed plan_square if empty
+/**
+ * 统一插入一条 unit
+ */
+function unit(id: string, dailyId: string, type: string, orderIndex: number, paceMode: string | null, paceValue: string | null, standardType: string | null, standardValue: number | null, standard: string | null, content: string | null) {
+  sqlite.query(`INSERT INTO plan_square_unit (id, daily_plan_id, type, order_index, pace_mode, pace_value, standard_type, standard_value, standard, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(id, dailyId, type, orderIndex, paceMode, paceValue, standardType, standardValue, standard, content);
+}
+
+/**
+ * 统一插入一条 daily，不插 unit（休息日）
+ */
+function day(id: string, weeklyId: string, dayIndex: number, dayDesc: string) {
+  sqlite.query(`INSERT INTO plan_square_daily (id, weekly_plan_id, day_index, day_desc) VALUES (?, ?, ?, ?)`).run(id, weeklyId, dayIndex, dayDesc);
+}
+
+/**
+ * 训练日：热身 + 主训练 + 冷身/拉伸
+ */
+function runDay(id: string, weeklyId: string, dayIndex: number, dayDesc: string, warmupMin: number, mainMin: number, paceMode: string, paceValue: string, restMin: number) {
+  day(id, weeklyId, dayIndex, dayDesc);
+  const mainSec = mainMin * 60;
+  const warmupSec = warmupMin * 60;
+  const restSec = restMin * 60;
+  unit(id + '-u1', id, 'run', 1, 'E', '6:00', 'time', warmupSec, '热身', '轻松跑热身');
+  unit(id + '-u2', id, 'run', 2, paceMode, paceValue, 'time', mainSec, '主训练', null);
+  unit(id + '-u3', id, 'other', 3, null, null, 'time', restSec, '冷身', '拉伸放松');
+}
+
+/**
+ * T跑日（无热身冷身）
+ */
+function tDay(id: string, weeklyId: string, dayIndex: number, dayDesc: string, mainMin: number) {
+  day(id, weeklyId, dayIndex, dayDesc);
+  const mainSec = mainMin * 60;
+  unit(id + '-u1', id, 'run', 1, 'E', '6:00', 'time', 600, '热身', '轻松跑热身');
+  unit(id + '-u2', id, 'run', 2, 'T', '5:00', 'time', mainSec, 'T训练', null);
+  unit(id + '-u3', id, 'other', 3, null, null, 'time', 300, '冷身', '拉伸放松');
+}
+
+/**
+ * 比赛日
+ */
+function raceDay(id: string, weeklyId: string, dayIndex: number, dayDesc: string, distance: number) {
+  day(id, weeklyId, dayIndex, dayDesc);
+  unit(id + '-u1', id, 'run', 1, null, null, 'distance', distance, '比赛', '5K比赛日！全力以赴！');
+}
+
+function seedPlanSquare() {
+  const existing = sqlite.query('SELECT COUNT(*) as cnt FROM plan_square').get() as { cnt: number };
+  if (existing.cnt > 0) return;
+
+  const nowStr = now();
+  sqlite.query(`
+    INSERT INTO plan_square (id, name, target_distance, target_time, vdot, pace_e, pace_m, pace_t, pace_i, pace_r, weeks, plan_desc, created_at, updated_at, is_active)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run('plan-5k-001', '8周5K训练计划', '5k', 1800, 45.0, 330, 300, 275, 255, 240, 8, '适合初学者的8周5K训练计划，每周3-4次训练', nowStr, nowStr, 1);
+
+  // Week 1 - 适应期
+  sqlite.query(`INSERT INTO plan_square_weekly (id, plan_id, week_index, week_desc) VALUES (?, ?, ?, ?)`).run('ps-w1', 'plan-5k-001', 1, '第1周：适应期');
+  day('ps-w1d1', 'ps-w1', 1, '周一：休息');
+  runDay('ps-w1d2', 'ps-w1', 2, '周二：E跑40分钟', 10, 25, 'E', '5:30', 5);
+  day('ps-w1d3', 'ps-w1', 3, '周三：休息');
+  runDay('ps-w1d4', 'ps-w1', 4, '周四：E跑40分钟', 10, 25, 'E', '5:30', 5);
+  day('ps-w1d5', 'ps-w1', 5, '周五：休息');
+  runDay('ps-w1d6', 'ps-w1', 6, '周六：E跑50分钟', 10, 35, 'E', '5:30', 5);
+  day('ps-w1d7', 'ps-w1', 7, '周日：休息');
+
+  // Week 2 - 基础期
+  sqlite.query(`INSERT INTO plan_square_weekly (id, plan_id, week_index, week_desc) VALUES (?, ?, ?, ?)`).run('ps-w2', 'plan-5k-001', 2, '第2周：基础期');
+  day('ps-w2d1', 'ps-w2', 1, '周一：休息');
+  runDay('ps-w2d2', 'ps-w2', 2, '周二：E跑45分钟', 10, 30, 'E', '5:30', 5);
+  day('ps-w2d3', 'ps-w2', 3, '周三：休息');
+  runDay('ps-w2d4', 'ps-w2', 4, '周四：E跑45分钟', 10, 30, 'E', '5:30', 5);
+  day('ps-w2d5', 'ps-w2', 5, '周五：休息');
+  runDay('ps-w2d6', 'ps-w2', 6, '周六：E跑60分钟', 10, 45, 'E', '5:30', 5);
+  day('ps-w2d7', 'ps-w2', 7, '周日：休息');
+
+  // Week 3 - 提升期
+  sqlite.query(`INSERT INTO plan_square_weekly (id, plan_id, week_index, week_desc) VALUES (?, ?, ?, ?)`).run('ps-w3', 'plan-5k-001', 3, '第3周：提升期');
+  day('ps-w3d1', 'ps-w3', 1, '周一：休息');
+  runDay('ps-w3d2', 'ps-w3', 2, '周二：E跑50分钟', 10, 35, 'E', '5:20', 5);
+  tDay('ps-w3d3', 'ps-w3', 3, '周三：T跑25分钟', 25);
+  runDay('ps-w3d4', 'ps-w3', 4, '周四：E跑50分钟', 10, 35, 'E', '5:20', 5);
+  day('ps-w3d5', 'ps-w3', 5, '周五：休息');
+  runDay('ps-w3d6', 'ps-w3', 6, '周六：E跑65分钟', 10, 50, 'E', '5:20', 5);
+  day('ps-w3d7', 'ps-w3', 7, '周日：休息');
+
+  // Week 4 - 巩固期
+  sqlite.query(`INSERT INTO plan_square_weekly (id, plan_id, week_index, week_desc) VALUES (?, ?, ?, ?)`).run('ps-w4', 'plan-5k-001', 4, '第4周：巩固期');
+  day('ps-w4d1', 'ps-w4', 1, '周一：休息');
+  runDay('ps-w4d2', 'ps-w4', 2, '周二：E跑55分钟', 10, 40, 'E', '5:20', 5);
+  tDay('ps-w4d3', 'ps-w4', 3, '周三：T跑30分钟', 30);
+  runDay('ps-w4d4', 'ps-w4', 4, '周四：E跑55分钟', 10, 40, 'E', '5:20', 5);
+  day('ps-w4d5', 'ps-w4', 5, '周五：休息');
+  runDay('ps-w4d6', 'ps-w4', 6, '周六：E跑70分钟', 10, 55, 'E', '5:20', 5);
+  day('ps-w4d7', 'ps-w4', 7, '周日：休息');
+
+  // Week 5 - 强化期
+  sqlite.query(`INSERT INTO plan_square_weekly (id, plan_id, week_index, week_desc) VALUES (?, ?, ?, ?)`).run('ps-w5', 'plan-5k-001', 5, '第5周：强化期');
+  day('ps-w5d1', 'ps-w5', 1, '周一：休息');
+  runDay('ps-w5d2', 'ps-w5', 2, '周二：E跑60分钟', 10, 45, 'E', '5:15', 5);
+  tDay('ps-w5d3', 'ps-w5', 3, '周三：T跑30分钟', 30);
+  runDay('ps-w5d4', 'ps-w5', 4, '周四：E跑60分钟', 10, 45, 'E', '5:15', 5);
+  day('ps-w5d5', 'ps-w5', 5, '周五：休息');
+  runDay('ps-w5d6', 'ps-w5', 6, '周六：E跑75分钟', 10, 60, 'E', '5:15', 5);
+  day('ps-w5d7', 'ps-w5', 7, '周日：休息');
+
+  // Week 6 - 巅峰期
+  sqlite.query(`INSERT INTO plan_square_weekly (id, plan_id, week_index, week_desc) VALUES (?, ?, ?, ?)`).run('ps-w6', 'plan-5k-001', 6, '第6周：巅峰期');
+  day('ps-w6d1', 'ps-w6', 1, '周一：休息');
+  runDay('ps-w6d2', 'ps-w6', 2, '周二：E跑65分钟', 10, 50, 'E', '5:15', 5);
+  tDay('ps-w6d3', 'ps-w6', 3, '周三：T跑35分钟', 35);
+  runDay('ps-w6d4', 'ps-w6', 4, '周四：E跑65分钟', 10, 50, 'E', '5:15', 5);
+  day('ps-w6d5', 'ps-w6', 5, '周五：休息');
+  runDay('ps-w6d6', 'ps-w6', 6, '周六：E跑80分钟', 10, 65, 'E', '5:15', 5);
+  day('ps-w6d7', 'ps-w6', 7, '周日：休息');
+
+  // Week 7 - 减量期
+  sqlite.query(`INSERT INTO plan_square_weekly (id, plan_id, week_index, week_desc) VALUES (?, ?, ?, ?)`).run('ps-w7', 'plan-5k-001', 7, '第7周：减量期');
+  day('ps-w7d1', 'ps-w7', 1, '周一：休息');
+  runDay('ps-w7d2', 'ps-w7', 2, '周二：E跑50分钟', 10, 35, 'E', '5:30', 5);
+  tDay('ps-w7d3', 'ps-w7', 3, '周三：T跑20分钟', 20);
+  runDay('ps-w7d4', 'ps-w7', 4, '周四：E跑50分钟', 10, 35, 'E', '5:30', 5);
+  day('ps-w7d5', 'ps-w7', 5, '周五：休息');
+  runDay('ps-w7d6', 'ps-w7', 6, '周六：E跑60分钟', 10, 45, 'E', '5:30', 5);
+  day('ps-w7d7', 'ps-w7', 7, '周日：休息');
+
+  // Week 8 - 比赛周
+  sqlite.query(`INSERT INTO plan_square_weekly (id, plan_id, week_index, week_desc) VALUES (?, ?, ?, ?)`).run('ps-w8', 'plan-5k-001', 8, '第8周：比赛周');
+  day('ps-w8d1', 'ps-w8', 1, '周一：休息');
+  runDay('ps-w8d2', 'ps-w8', 2, '周二：E跑40分钟', 10, 25, 'E', '5:30', 5);
+  day('ps-w8d3', 'ps-w8', 3, '周三：休息');
+  runDay('ps-w8d4', 'ps-w8', 4, '周四：E跑30分钟', 10, 15, 'E', '5:30', 5);
+  day('ps-w8d5', 'ps-w8', 5, '周五：休息');
+  raceDay('ps-w8d6', 'ps-w8', 6, '周六：比赛日！', 5000);
+  day('ps-w8d7', 'ps-w8', 7, '周日：休息恢复');
+
+  console.log('[Seed] plan_square seeded successfully');
+}
+
+seedPlanSquare();
 
 // ============================================================================
 // Route Handlers
@@ -1029,6 +1237,342 @@ const routes: Record<string, RouteHandler> = {
     sqlite.query('DELETE FROM user_favorite WHERE id = ?').run(id);
     return Response.json({ success: true });
   },
+
+  // Apple Sign In - Get or create cloud user
+  'POST /api/auth/apple': async (req) => {
+    const { appleUserId, email } = await req.json();
+
+    if (!appleUserId) {
+      return Response.json({ error: 'appleUserId required' }, { status: 400 });
+    }
+
+    // Check if user exists
+    const existingUser = sqlite.query('SELECT * FROM cloud_user WHERE apple_user_id = ?').get(appleUserId) as {
+      id: string;
+      apple_user_id: string;
+      email: string | null;
+      created_at: string;
+    } | undefined;
+
+    if (existingUser) {
+      return Response.json({
+        success: true,
+        userId: existingUser.id,
+        isNew: false,
+        email: existingUser.email
+      });
+    }
+
+    // Create new user
+    const userId = generateId();
+    const nowStr = now();
+    sqlite.query(`
+      INSERT INTO cloud_user (id, apple_user_id, email, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(userId, appleUserId, email || null, nowStr, nowStr);
+
+    return Response.json({
+      success: true,
+      userId,
+      isNew: true,
+      email: email || null
+    });
+  },
+
+  // Upload backup to cloud
+  'POST /api/backup': async (req) => {
+    const { userId, plans, weeklyPlans, dailyPlans, units, userPlanCalendar, checkInRecords, favorites } = await req.json();
+
+    if (!userId) {
+      return Response.json({ error: 'userId required' }, { status: 400 });
+    }
+
+    const nowStr = now();
+    const backupData = JSON.stringify({
+      plans,
+      weeklyPlans,
+      dailyPlans,
+      units,
+      userPlanCalendar,
+      checkInRecords,
+      favorites,
+      exportedAt: nowStr
+    });
+
+    // Check if backup exists for this user
+    const existingBackup = sqlite.query('SELECT * FROM backup WHERE user_id = ?').get(userId) as { id: string } | undefined;
+
+    if (existingBackup) {
+      sqlite.query('UPDATE backup SET data = ?, updated_at = ? WHERE user_id = ?').run(backupData, nowStr, userId);
+      return Response.json({
+        success: true,
+        backupId: existingBackup.id,
+        updated: true,
+        exportedAt: nowStr
+      });
+    }
+
+    // Create new backup
+    const backupId = generateId();
+    sqlite.query(`
+      INSERT INTO backup (id, user_id, data, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(backupId, userId, backupData, nowStr, nowStr);
+
+    return Response.json({
+      success: true,
+      backupId,
+      updated: false,
+      exportedAt: nowStr
+    });
+  },
+
+  // Download backup from cloud
+  'GET /api/backup': async (req, url) => {
+    const userId = url.searchParams.get('userId');
+
+    if (!userId) {
+      return Response.json({ error: 'userId required' }, { status: 400 });
+    }
+
+    const backup = sqlite.query('SELECT * FROM backup WHERE user_id = ?').get(userId) as {
+      id: string;
+      user_id: string;
+      data: string;
+      created_at: string;
+      updated_at: string;
+    } | undefined;
+
+    if (!backup) {
+      return Response.json({ error: 'Backup not found' }, { status: 404 });
+    }
+
+    const data = JSON.parse(backup.data);
+
+    return Response.json({
+      success: true,
+      backupId: backup.id,
+      createdAt: backup.created_at,
+      updatedAt: backup.updated_at,
+      ...data
+    });
+  },
+
+  // Plan Square - Get all plans from local SQLite
+  'GET /api/plan-square': async () => {
+    try {
+      const plans = sqlite.query(`
+        SELECT id, name, target_distance, target_time, vdot, pace_e, pace_m, pace_t, pace_i, pace_r, weeks, plan_desc, is_active, created_at, updated_at
+        FROM plan_square
+        ORDER BY created_at DESC
+      `).all() as Array<{
+        id: string;
+        name: string;
+        target_distance: string;
+        target_time: number;
+        vdot: number;
+        pace_e: number;
+        pace_m: number;
+        pace_t: number;
+        pace_i: number;
+        pace_r: number;
+        weeks: number;
+        plan_desc: string | null;
+        is_active: number;
+        created_at: string;
+        updated_at: string;
+      }>;
+
+      const enrichedPlans = plans.map((plan) => {
+        const weeks = sqlite.query(`
+          SELECT id, week_index, week_desc FROM plan_square_weekly
+          WHERE plan_id = ? ORDER BY week_index
+        `).all(plan.id) as Array<{
+          id: string;
+          week_index: number;
+          week_desc: string | null;
+        }>;
+
+        const enrichedWeeks = weeks.map((week) => {
+          const days = sqlite.query(`
+            SELECT id, day_index, day_desc FROM plan_square_daily
+            WHERE weekly_plan_id = ? ORDER BY day_index
+          `).all(week.id) as Array<{
+            id: string;
+            day_index: number;
+            day_desc: string | null;
+          }>;
+
+          const enrichedDays = days.map((day) => {
+            const units = sqlite.query(`
+              SELECT id, type, order_index, pace_mode, pace_value, standard_type, standard_value, standard, content
+              FROM plan_square_unit WHERE daily_plan_id = ? ORDER BY order_index
+            `).all(day.id) as Array<{
+              id: string;
+              type: string;
+              order_index: number;
+              pace_mode: string | null;
+              pace_value: string | null;
+              standard_type: string | null;
+              standard_value: number | null;
+              standard: string | null;
+              content: string | null;
+            }>;
+
+            return {
+              id: day.id,
+              dayIndex: day.day_index,
+              dayDesc: day.day_desc,
+              units: units.map((u) => ({
+                id: u.id,
+                type: u.type,
+                orderIndex: u.order_index,
+                paceMode: u.pace_mode,
+                paceValue: u.pace_value,
+                standardType: u.standard_type,
+                standardValue: u.standard_value,
+                standard: u.standard,
+                content: u.content,
+              })),
+            };
+          });
+
+          return {
+            id: week.id,
+            weekIndex: week.week_index,
+            weekDesc: week.week_desc,
+            days: enrichedDays,
+          };
+        });
+
+        return {
+          id: plan.id,
+          name: plan.name,
+          targetDistance: plan.target_distance,
+          targetTime: plan.target_time,
+          vdot: plan.vdot,
+          paceE: plan.pace_e,
+          paceM: plan.pace_m,
+          paceT: plan.pace_t,
+          paceI: plan.pace_i,
+          paceR: plan.pace_r,
+          weeks: plan.weeks,
+          planDesc: plan.plan_desc,
+          isActive: !!plan.is_active,
+          createdAt: plan.created_at,
+          updatedAt: plan.updated_at,
+          weeksData: enrichedWeeks,
+        };
+      });
+
+      return Response.json({ success: true, plans: enrichedPlans });
+    } catch (e) {
+      console.error('Plan Square error:', e);
+      return Response.json({ error: (e as Error).message }, { status: 500 });
+    }
+  },
+
+  // Plan Square - Activate (execute) a plan for this week or next week
+  'POST /api/plan-square/activate': async (req) => {
+    try {
+      const { planId, startWeek } = await req.json();
+
+      if (!planId) {
+        return Response.json({ error: 'planId required' }, { status: 400 });
+      }
+
+      const plan = sqlite.query('SELECT * FROM plan_square WHERE id = ?').get(planId) as {
+        id: string;
+        name: string;
+        target_distance: string;
+        target_time: number;
+        vdot: number;
+        pace_e: number;
+        pace_m: number;
+        pace_t: number;
+        pace_i: number;
+        pace_r: number;
+        weeks: number;
+        plan_desc: string | null;
+      } | undefined;
+
+      if (!plan) {
+        return Response.json({ error: 'Plan not found' }, { status: 404 });
+      }
+
+      const weeksResult = sqlite.query(`
+        SELECT id, week_index FROM plan_square_weekly WHERE plan_id = ? ORDER BY week_index
+      `).all(planId) as Array<{ id: string; week_index: number }>;
+
+      const today = new Date();
+      const getMonday = (d: Date) => {
+        const date = new Date(d);
+        const day = date.getDay();
+        const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+        date.setDate(diff);
+        date.setHours(0, 0, 0, 0);
+        return date;
+      };
+
+      let startDate = getMonday(today);
+      if (startWeek === 'next_week') {
+        startDate.setDate(startDate.getDate() + 7);
+      }
+
+      const calendarEntries = [];
+
+      for (let weekOffset = 0; weekOffset < plan.weeks; weekOffset++) {
+        const weekStart = new Date(startDate);
+        weekStart.setDate(weekStart.getDate() + weekOffset * 7);
+
+        const weeklyPlan = weeksResult.find((w) => w.week_index === weekOffset + 1);
+        if (!weeklyPlan) continue;
+
+        const daysResult = sqlite.query(`
+          SELECT id, day_index, day_desc FROM plan_square_daily
+          WHERE weekly_plan_id = ? ORDER BY day_index
+        `).all(weeklyPlan.id) as Array<{ id: string; day_index: number; day_desc: string | null }>;
+
+        for (const day of daysResult) {
+          const entryDate = new Date(weekStart);
+          entryDate.setDate(entryDate.getDate() + day.day_index - 1);
+
+          const dateStr = entryDate.getFullYear() + '-' +
+            String(entryDate.getMonth() + 1).padStart(2, '0') + '-' +
+            String(entryDate.getDate()).padStart(2, '0');
+
+          calendarEntries.push({
+            date: dateStr,
+            dailyPlanId: day.id,
+            dayDesc: day.day_desc,
+          });
+        }
+      }
+
+      return Response.json({
+        success: true,
+        plan: {
+          id: plan.id,
+          name: plan.name,
+          targetDistance: plan.target_distance,
+          targetTime: plan.target_time,
+          vdot: plan.vdot,
+          paceE: plan.pace_e,
+          paceM: plan.pace_m,
+          paceT: plan.pace_t,
+          paceI: plan.pace_i,
+          paceR: plan.pace_r,
+          weeks: plan.weeks,
+          planDesc: plan.plan_desc,
+        },
+        calendarEntries,
+        startWeek,
+      });
+    } catch (e) {
+      console.error('Activate error:', e);
+      return Response.json({ error: (e as Error).message }, { status: 500 });
+    }
+  },
 };
 
 // ============================================================================
@@ -1070,6 +1614,7 @@ function serveStatic(url: URL) {
 
 const server = Bun.serve({
   port: PORT,
+  idleTimeout: 60,
   async fetch(req) {
     const url = new URL(req.url);
     const path = url.pathname;
@@ -1197,6 +1742,21 @@ const server = Bun.serve({
         const id = path.split('/')[3];
         url.searchParams.set('id', id);
         return routes['DELETE /api/user-favorite'](req, url);
+      }
+      if (path === '/api/auth/apple' && method === 'POST') {
+        return routes['POST /api/auth/apple'](req, url);
+      }
+      if (path === '/api/backup' && method === 'POST') {
+        return routes['POST /api/backup'](req, url);
+      }
+      if (path === '/api/backup' && method === 'GET') {
+        return routes['GET /api/backup'](req, url);
+      }
+      if (path === '/api/plan-square' && method === 'GET') {
+        return routes['GET /api/plan-square'](req, url);
+      }
+      if (path === '/api/plan-square/activate' && method === 'POST') {
+        return routes['POST /api/plan-square/activate'](req, url);
       }
 
       return Response.json({ error: 'Not found' }, { status: 404, headers });

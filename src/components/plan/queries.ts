@@ -14,7 +14,9 @@ const DAY_NAMES = ['周一', '周二', '周三', '周四', '周五', '周六', '
  */
 export async function getCurrentPlan(): Promise<PlanInfo | null> {
   await getDatabase();
-  const plans = await db.select().from(schema.plan).orderBy(schema.plan.createdAt);
+  const plans = await db.select().from(schema.plan).orderBy(schema.plan.createdAt).all();
+  console.log('[getCurrentPlan] raw plans count:', plans.length);
+  console.log('[getCurrentPlan] raw plans:', JSON.stringify(plans, null, 2));
   if (plans.length === 0) return null;
   const p = plans[plans.length - 1];
   return {
@@ -43,7 +45,8 @@ export async function getWeeklyPlans(planId: string): Promise<WeeklyPlanInfo[]> 
     .select()
     .from(schema.weeklyPlan)
     .where(eq(schema.weeklyPlan.planId, planId))
-    .orderBy(asc(schema.weeklyPlan.weekIndex));
+    .orderBy(asc(schema.weeklyPlan.weekIndex))
+    .all();
   return weeks.map((w) => ({
     id: w.id,
     planId: w.planId,
@@ -60,7 +63,8 @@ export async function getDailyPlans(weeklyPlanId: string): Promise<DailyPlanInfo
     .select()
     .from(schema.dailyPlan)
     .where(eq(schema.dailyPlan.weeklyPlanId, weeklyPlanId))
-    .orderBy(asc(schema.dailyPlan.dayIndex));
+    .orderBy(asc(schema.dailyPlan.dayIndex))
+    .all();
   return days.map((d) => ({
     id: d.id,
     weeklyPlanId: d.weeklyPlanId,
@@ -77,7 +81,8 @@ export async function getUnits(dailyPlanId: string): Promise<UnitInfo[]> {
     .select()
     .from(schema.unit)
     .where(eq(schema.unit.dailyPlanId, dailyPlanId))
-    .orderBy(asc(schema.unit.orderIndex));
+    .orderBy(asc(schema.unit.orderIndex))
+    .all();
   return units.map((u) => ({
     id: u.id,
     dailyPlanId: u.dailyPlanId,

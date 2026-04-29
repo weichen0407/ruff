@@ -116,7 +116,6 @@ async function openDb(): Promise<ReturnType<typeof drizzle<typeof schema>>> {
 
 /**
  * Get or create the database instance.
- * Initializes schema on first call.
  */
 export async function getDatabase() {
   if (initPromise) {
@@ -134,8 +133,6 @@ export async function getDatabase() {
 
 /**
  * Lazy-loaded drizzle database instance.
- * Accessing any property will trigger initialization.
- * For app startup, call getDatabase() explicitly.
  */
 export const db = new Proxy({} as ReturnType<typeof drizzle<typeof schema>>, {
   get(_target, prop) {
