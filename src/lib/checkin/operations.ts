@@ -52,7 +52,8 @@ export async function checkinFromPlan(
   });
 
   // Update daily overview to mark hasCheckIn = true
-  await ensureDailyOverview(calendarEntry.date, true);
+  // Use today's date (the actual check-in date), not calendarEntry.date (the planned date)
+  await ensureDailyOverview(getTodayDateString(), true);
 
   // Update calendar entry status to completed
   await updateCalendarEntryStatus(input.calendarEntryId, 'completed');
@@ -198,6 +199,7 @@ export async function getCheckInsInRange(
  * Ensure daily overview exists for a date
  */
 async function ensureDailyOverview(date: string, hasCheckIn: boolean): Promise<void> {
+  // Use the date parameter as-is (caller should pass the correct check-in date)
   const existing = await db.query.checkInDailyOverview.findFirst({
     where: eq(checkInDailyOverview.date, date),
   });
@@ -240,4 +242,42 @@ export async function deleteCheckIn(recordId: string): Promise<void> {
       await updateCalendarEntryStatus(record.calendarEntryId, 'pending');
     }
   }
+}
+
+export interface MonthlyCheckInData {
+  [date: string]: {
+    hasCheckIn: boolean;
+    hasSleepRecord: boolean;
+    hasWeightRecord: boolean;
+  };
+}
+
+/**
+ * Get all check-in data for a given month
+ * Returns a map of date string -> check-in status
+ */
+export async function getMonthlyCheckInData(year: number, month: number): Promise<MonthlyCheckInData> {
+  // Build date range for the month
+  // month is 1-12 (human convention)
+  const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+  const endDate = new Date(year, month, 0).getDate(); // JS Date month is 0-indexed, so month=4 means May, May 0 = Apr 30
+  const endDateStr = `${year}-${String(month).padStart(2, '0')}-${String(endDate).padStart(2, '0')}`;
+
+  // Query all daily overviews and filter to this month
+  const allOverviews = await db.select().from(checkInDailyOverview);
+
+  // Filter to only include dates in this month
+  const monthlyOverviews = allOverviews.filter(o => o.date >= startDate && o.date <= endDateStr);
+
+  const result: MonthlyCheckInData = {};
+
+  for (const overview of monthlyOverviews) {
+    result[overview.date] = {
+      hasCheckIn: overview.hasCheckIn ?? false,
+      hasSleepRecord: overview.hasSleepRecord ?? false,
+      hasWeightRecord: overview.hasWeightRecord ?? false,
+    };
+  }
+
+  return result;
 }

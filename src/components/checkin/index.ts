@@ -7,3 +7,6 @@ export { default as WeightConfirmSheet } from './weight-confirm-sheet';
 export { default as SleepConfirmSheet } from './sleep-confirm-sheet';
 export { default as WeightRecordCard } from './weight-record-card';
 export { default as SleepRecordCard } from './sleep-record-card';
+export { default as DateDetailSheet } from './date-detail-sheet';
+export { TriangleCheckIn } from './triangle-check-in';
+export { CalendarCheckIn } from './calendar-check-in';

@@ -306,17 +306,14 @@ export default function TrackScreen() {
               hasWeightRecord={!!todayWeight}
               onSegmentPress={(index) => {
                 if (index === 0) {
-                  // 训练打卡
                   if (todayPlan?.calendarEntryId) {
                     handleOpenCheckIn();
                   } else {
                     setShowCreateSheet(true);
                   }
                 } else if (index === 1) {
-                  // 睡眠
                   setShowSleepSheet(true);
                 } else if (index === 2) {
-                  // 体重
                   setShowWeightSheet(true);
                 }
               }}
@@ -479,11 +476,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: SPACING.xl,
-    gap: SPACING.xl,
+    gap: SPACING.lg,
+  },
+  monthHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.lg,
+    paddingHorizontal: SPACING.md,
+  },
+  monthNavButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  monthNavText: {
+    ...TYPOGRAPHY.title2,
+    color: COLORS.primary,
+  },
+  monthTitle: {
+    ...TYPOGRAPHY.headline,
+    color: PlatformColor('label'),
+    minWidth: 100,
+    textAlign: 'center',
   },
   triangleContainer: {
     alignItems: 'center',
     gap: SPACING.xl,
+  },
+  calendarContainer: {
+    marginHorizontal: -SPACING.md,
   },
   actionButton: {
     backgroundColor: COLORS.primary,
