@@ -221,7 +221,7 @@ export default function PlanSquareSheet({ visible, onClose, onActivated }: Props
             </View>
           ) : plans.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>暂无计划</Text>
+              <Text style={styles.emptyText}>自由训练</Text>
             </View>
           ) : (
             plans.map(renderPlanItem)

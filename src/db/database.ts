@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS \`check_in_record\` (
   \`pace\` integer,
   \`feeling\` text,
   \`photos\` text,
+  \`comment\` text,
   \`created_at\` text NOT NULL,
   \`synced_at\` text
 );
@@ -105,12 +106,23 @@ CREATE TABLE IF NOT EXISTS \`user_favorite\` (
 );
 `;
 
+const MIGRATION_SQL = `
+-- Migration: add comment column to check_in_record if not exists
+ALTER TABLE \`check_in_record\` ADD COLUMN \`comment\` text;
+`;
+
 let dbInstance: ReturnType<typeof drizzle<typeof schema>> | null = null;
 let initPromise: Promise<ReturnType<typeof drizzle<typeof schema>>> | null = null;
 
 async function openDb(): Promise<ReturnType<typeof drizzle<typeof schema>>> {
   const sqlite = await SQLite.openDatabaseAsync(DATABASE_NAME);
   await sqlite.execAsync(INIT_SQL);
+  // Run migrations (ignore errors for columns that already exist)
+  try {
+    await sqlite.execAsync(MIGRATION_SQL);
+  } catch (_) {
+    // column may already exist
+  }
   return drizzle(sqlite, { schema });
 }
 

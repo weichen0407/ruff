@@ -23,6 +23,7 @@ interface Props {
   units: Unit[];
   isCompleted: boolean;
   onToggleComplete?: () => void;
+  onPress?: () => void;
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -31,7 +32,7 @@ const TYPE_COLORS: Record<string, string> = {
   other: '#8E8E93',
 };
 
-export default function TodayPlanCard({ dayName, planName, units, isCompleted, onToggleComplete }: Props) {
+export default function TodayPlanCard({ dayName, planName, units, isCompleted, onToggleComplete, onPress }: Props) {
   const renderUnit = (unit: Unit, index: number) => {
     let mainInfo = '';
     let subInfo = '';
@@ -70,28 +71,30 @@ export default function TodayPlanCard({ dayName, planName, units, isCompleted, o
 
   return (
     <View style={[styles.card, isCompleted && styles.cardCompleted]}>
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.dayName}>{dayName}</Text>
-          <Text style={styles.planName}>{planName}</Text>
+      <Pressable onPress={onPress} style={styles.cardBody}>
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.dayName}>{dayName}</Text>
+            <Text style={styles.planName}>{planName}</Text>
+          </View>
+          <Pressable
+            style={[styles.checkButton, isCompleted && styles.checkButtonCompleted]}
+            onPress={onToggleComplete}
+          >
+            <Text style={[styles.checkText, isCompleted && styles.checkTextCompleted]}>
+              {isCompleted ? '✓' : '○'}
+            </Text>
+          </Pressable>
         </View>
-        <Pressable
-          style={[styles.checkButton, isCompleted && styles.checkButtonCompleted]}
-          onPress={onToggleComplete}
-        >
-          <Text style={[styles.checkText, isCompleted && styles.checkTextCompleted]}>
-            {isCompleted ? '✓' : '○'}
-          </Text>
-        </Pressable>
-      </View>
 
-      <View style={styles.units}>
-        {units.length === 0 ? (
-          <Text style={styles.noPlan}>暂无计划</Text>
-        ) : (
-          units.map((unit, i) => renderUnit(unit, i))
-        )}
-      </View>
+        <View style={styles.units}>
+          {units.length === 0 ? (
+            <Text style={styles.noPlan}>自由训练</Text>
+          ) : (
+            units.map((unit, i) => renderUnit(unit, i))
+          )}
+        </View>
+      </Pressable>
     </View>
   );
 }
@@ -115,6 +118,9 @@ const styles = StyleSheet.create({
   headerLeft: {
     flex: 1,
     gap: SPACING.xs,
+  },
+  cardBody: {
+    gap: SPACING.md,
   },
   dayName: {
     ...TYPOGRAPHY.headline,

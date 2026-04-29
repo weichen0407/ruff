@@ -22,9 +22,9 @@ const CENTER = { x: SIZE / 2, y: (HEIGHT * 2) / 3 };
 
 // 3 triangle segments from center to vertices
 const SEGMENTS = [
-  { id: 0, points: `${CENTER.x},${CENTER.y} ${TOP.x},${TOP.y} ${BOTTOM_RIGHT.x},${BOTTOM_RIGHT.y}`, label: '训练' },
-  { id: 1, points: `${CENTER.x},${CENTER.y} ${BOTTOM_RIGHT.x},${BOTTOM_RIGHT.y} ${BOTTOM_LEFT.x},${BOTTOM_LEFT.y}`, label: '休息' },
-  { id: 2, points: `${CENTER.x},${CENTER.y} ${BOTTOM_LEFT.x},${BOTTOM_LEFT.y} ${TOP.x},${TOP.y}`, label: '营养' },
+  { id: 1, points: `${CENTER.x},${CENTER.y} ${BOTTOM_LEFT.x},${BOTTOM_LEFT.y} ${TOP.x},${TOP.y}`, label: '训练打卡' },
+  { id: 0, points: `${CENTER.x},${CENTER.y} ${TOP.x},${TOP.y} ${BOTTOM_RIGHT.x},${BOTTOM_RIGHT.y}`, label: '睡眠' },
+  { id: 2, points: `${CENTER.x},${CENTER.y} ${BOTTOM_RIGHT.x},${BOTTOM_RIGHT.y} ${BOTTOM_LEFT.x},${BOTTOM_LEFT.y}`, label: '体重' },
 ];
 
 const COLORS = {
@@ -36,17 +36,25 @@ const COLORS = {
 interface Props {
   onSegmentPress?: (index: number) => void;
   filledSegments?: number[];
+  /** When true, only the "运动" segment (index 0) is lit */
+  active?: boolean;
 }
 
-export default function CheckInTriangle({ onSegmentPress, filledSegments = [] }: Props) {
+export default function CheckInTriangle({ onSegmentPress, filledSegments = [], active = false }: Props) {
   const [activeSegments, setActiveSegments] = useState<number[]>(filledSegments);
 
   const handleSegmentPress = (index: number) => {
-    const newSegments = activeSegments.includes(index)
-      ? activeSegments.filter((i) => i !== index)
-      : [...activeSegments, index];
+    const id = SEGMENTS[index].id;
+    const newSegments = activeSegments.includes(id)
+      ? activeSegments.filter((i) => i !== id)
+      : [...activeSegments, id];
     setActiveSegments(newSegments);
     onSegmentPress?.(index);
+  };
+
+  const isLit = (index: number) => {
+    if (active && index === 0) return true;
+    return activeSegments.includes(SEGMENTS[index].id);
   };
 
   return (
@@ -57,7 +65,7 @@ export default function CheckInTriangle({ onSegmentPress, filledSegments = [] }:
           <Polygon
             key={segment.id}
             points={segment.points}
-            fill={activeSegments.includes(index) ? COLORS.fill : 'transparent'}
+            fill={isLit(index) ? COLORS.fill : 'transparent'}
             stroke={COLORS.stroke}
             strokeWidth={COLORS.strokeWidth}
             onPress={() => handleSegmentPress(index)}
@@ -76,11 +84,11 @@ export default function CheckInTriangle({ onSegmentPress, filledSegments = [] }:
             key={segment.id}
             style={[
               styles.button,
-              activeSegments.includes(index) && styles.buttonActive,
+              isLit(index) && styles.buttonActive,
             ]}
             onPress={() => handleSegmentPress(index)}
           >
-            <Text style={[styles.buttonText, activeSegments.includes(index) && styles.buttonTextActive]}>
+            <Text style={[styles.buttonText, isLit(index) && styles.buttonTextActive]}>
               {segment.label}
             </Text>
           </Pressable>

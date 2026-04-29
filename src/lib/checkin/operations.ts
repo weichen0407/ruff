@@ -6,7 +6,7 @@
 
 import { eq } from 'drizzle-orm';
 import { db } from '../../db';
-import { checkInRecord, checkInDailyOverview, userPlanCalendar } from '../../db/schema';
+import { checkInRecord, checkInDailyOverview, userPlanCalendar, unit } from '../../db/schema';
 import { generateId, now, getTodayDateString } from '../../db/utils';
 import type {
   CheckInRecord,
@@ -47,6 +47,7 @@ export async function checkinFromPlan(
     pace: input.pace,
     feeling: input.feeling ?? null,
     photos: input.photos ? JSON.stringify(input.photos) : null,
+    comment: input.comment ?? null,
     createdAt: nowStr,
   });
 
@@ -83,6 +84,7 @@ export async function checkinCustom(
     pace: input.pace ?? null,
     feeling: input.feeling ?? null,
     photos: input.photos ? JSON.stringify(input.photos) : null,
+    comment: input.comment ?? null,
     createdAt: nowStr,
   });
 
@@ -134,11 +136,27 @@ export async function getCheckInsForDate(date: string): Promise<CheckInWithDetai
             })
           : null;
 
+        const planUnits = dailyPlan
+          ? await db.query.unit.findMany({
+              where: eq((await import('../../db/schema')).unit.dailyPlanId, dailyPlan.id),
+              orderBy: (await import('../../db/schema')).unit.orderIndex,
+            })
+          : [];
+
         if (plan) {
           details.planName = plan.name;
           details.weekIndex = weeklyPlan?.weekIndex;
           details.dayIndex = dailyPlan?.dayIndex;
           details.dailyPlanDesc = dailyPlan?.desc ?? undefined;
+          details.units = planUnits.map(u => ({
+            id: u.id,
+            type: u.type as 'run' | 'rest' | 'other',
+            paceMode: u.paceMode,
+            paceValue: u.paceValue,
+            standardType: u.standardType as 'time' | 'distance' | null,
+            standardValue: u.standardValue,
+            content: u.content,
+          }));
         }
       }
     }

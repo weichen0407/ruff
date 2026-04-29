@@ -77,7 +77,7 @@ export default function DailyPlanCard({ dayPlan, isToday }: Props) {
 
       <View style={styles.units}>
         {units.length === 0 ? (
-          <Text style={styles.noPlan}>暂无计划</Text>
+          <Text style={styles.noPlan}>自由训练</Text>
         ) : (
           units.map((unit, i) => renderUnit(unit, i))
         )}

@@ -92,8 +92,9 @@ export const checkInRecord = sqliteTable('check_in_record', {
   distance: real('distance'), // 公里
   duration: integer('duration'), // 秒
   pace: integer('pace'), // 秒/公里
-  feeling: text('feeling').$type<'easy' | 'moderate' | 'hard' | 'painful'>(),
+  feeling: text('feeling').$type<'easy' | 'moderate' | 'hard'>(),
   photos: text('photos'), // JSON array of file paths
+  comment: text('comment'), // 用户心得评论
   createdAt: text('created_at').notNull(),
   // 预留扩展字段
   syncedAt: text('synced_at'),

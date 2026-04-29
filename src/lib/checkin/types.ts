@@ -4,7 +4,7 @@
 
 export type CheckInType = 'run' | 'rest' | 'other';
 
-export type Feeling = 'easy' | 'moderate' | 'hard' | 'painful';
+export type Feeling = 'easy' | 'moderate' | 'hard';
 
 export interface CheckInRecord {
   id: string;
@@ -16,6 +16,7 @@ export interface CheckInRecord {
   pace: number | null; // seconds/km
   feeling: Feeling | null;
   photos: string[] | null; // JSON array of file paths
+  comment: string | null;
   createdAt: string;
   syncedAt: string | null;
 }
@@ -28,6 +29,7 @@ export interface CreateCheckInFromPlanInput {
   pace: number;
   feeling?: Feeling;
   photos?: string[];
+  comment?: string;
 }
 
 export interface CreateCustomCheckInInput {
@@ -38,6 +40,7 @@ export interface CreateCustomCheckInInput {
   pace?: number;
   feeling?: Feeling;
   photos?: string[];
+  comment?: string;
   // For linking to a daily plan even if not from calendar
   dailyPlanId?: string;
 }
@@ -47,4 +50,13 @@ export interface CheckInWithDetails extends CheckInRecord {
   weekIndex?: number;
   dayIndex?: number;
   dailyPlanDesc?: string;
+  units?: Array<{
+    id: string;
+    type: 'run' | 'rest' | 'other';
+    paceMode: string | null;
+    paceValue: string | null;
+    standardType: 'time' | 'distance' | null;
+    standardValue: number | null;
+    content: string | null;
+  }>;
 }

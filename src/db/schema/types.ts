@@ -49,4 +49,4 @@ export type UnitType = 'run' | 'rest' | 'other';
 export type PaceMode = 'vdot' | 'custom';
 export type StandardType = 'time' | 'distance';
 export type CalendarStatus = 'pending' | 'completed' | 'skipped';
-export type Feeling = 'easy' | 'moderate' | 'hard' | 'painful';
+export type Feeling = 'easy' | 'moderate' | 'hard';
