@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView, Text, Pressable, Modal } from 'react-native';
 import { PlatformColor } from 'react-native';
 import { SPACING, TYPOGRAPHY, RADIUS, COLORS } from '../../constants/themes';
-import { CheckInTriangle, CreatePlanSheet, TodayPlanCard, CheckInConfirmSheet, TodayCheckInCard } from '../../components/checkin';
+import { CheckInTriangle, CreatePlanSheet, TodayPlanCard, CheckInConfirmSheet, TodayCheckInCard, WeightConfirmSheet, SleepConfirmSheet, WeightRecordCard, SleepRecordCard } from '../../components/checkin';
 import { generateId, now } from '../../db/utils';
 import { db, getDatabase, schema } from '../../db';
 import { eq } from 'drizzle-orm';
 import { getCheckInsForDate } from '../../lib/checkin/operations';
+import { getTodayWeightRecord, type WeightRecord } from '../../lib/weight/operations';
+import { getTodaySleepRecord, type SleepRecord } from '../../lib/sleep/operations';
 import type { CheckInWithDetails } from '../../lib/checkin/types';
 
 interface UnitForCheckIn {
@@ -41,24 +43,39 @@ interface DayPlan {
 export default function TrackScreen() {
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [showConfirmSheet, setShowConfirmSheet] = useState(false);
+  const [showWeightSheet, setShowWeightSheet] = useState(false);
+  const [showSleepSheet, setShowSleepSheet] = useState(false);
+  const [activeTab, setActiveTab] = useState<0 | 1 | 2>(0);
   const [pendingUnits, setPendingUnits] = useState<UnitForCheckIn[]>([]);
   const [pendingCalendarEntryId, setPendingCalendarEntryId] = useState<string | undefined>(undefined);
   const [todayPlan, setTodayPlan] = useState<DayPlan | null>(null);
   const [todayCheckIns, setTodayCheckIns] = useState<CheckInWithDetails[]>([]);
+  const [todayWeight, setTodayWeight] = useState<WeightRecord | null>(null);
+  const [todaySleep, setTodaySleep] = useState<SleepRecord | null>(null);
 
   useEffect(() => {
-    loadTodayPlan();
+    loadAll();
   }, []);
 
-  const loadTodayPlan = async () => {
+  const todayStr = new Date().getFullYear() + '-' +
+    String(new Date().getMonth() + 1).padStart(2, '0') + '-' +
+    String(new Date().getDate()).padStart(2, '0');
+
+  const loadAll = async () => {
     await getDatabase();
+    loadTodayPlan();
+    loadTodayCheckIns();
+    loadWeightAndSleep();
+  };
 
-    const today = new Date();
-    const todayStr = today.getFullYear() + '-' +
-      String(today.getMonth() + 1).padStart(2, '0') + '-' +
-      String(today.getDate()).padStart(2, '0');
+  const loadWeightAndSleep = async () => {
+    const w = await getTodayWeightRecord();
+    setTodayWeight(w);
+    const s = await getTodaySleepRecord();
+    setTodaySleep(s);
+  };
 
-    const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  const loadTodayPlan = async () => {
     const dayName = '今日';
 
     const entries = await db.select()
@@ -109,18 +126,10 @@ export default function TrackScreen() {
     });
   };
 
-  const todayStr = new Date().getFullYear() + '-' +
-    String(new Date().getMonth() + 1).padStart(2, '0') + '-' +
-    String(new Date().getDate()).padStart(2, '0');
-
   const loadTodayCheckIns = async () => {
     const checkIns = await getCheckInsForDate(todayStr);
     setTodayCheckIns(checkIns);
   };
-
-  useEffect(() => {
-    loadTodayCheckIns();
-  }, []);
 
   const handleToggleComplete = async () => {
     if (!todayPlan?.calendarEntryId) return;
@@ -292,31 +301,93 @@ export default function TrackScreen() {
         <View style={styles.content}>
           <View style={styles.triangleContainer}>
             <CheckInTriangle
-              active={todayCheckIns.length > 0}
+              hasCheckIn={todayCheckIns.length > 0}
+              hasSleepRecord={!!todaySleep}
+              hasWeightRecord={!!todayWeight}
               onSegmentPress={(index) => {
                 if (index === 0) {
+                  // 训练打卡
                   if (todayPlan?.calendarEntryId) {
                     handleOpenCheckIn();
                   } else {
                     setShowCreateSheet(true);
                   }
+                } else if (index === 1) {
+                  // 睡眠
+                  setShowSleepSheet(true);
+                } else if (index === 2) {
+                  // 体重
+                  setShowWeightSheet(true);
                 }
               }}
             />
           </View>
         </View>
 
-        {/* Today's check-in records */}
-        {todayCheckIns.length > 0 && (
-          <View style={styles.checkInsSection}>
-            <Text style={styles.sectionTitle}>今日打卡</Text>
-            <View style={styles.checkInsList}>
-              {todayCheckIns.map(record => (
-                <TodayCheckInCard key={record.id} record={record} />
-              ))}
-            </View>
+        {/* Check-in tabs */}
+        <View style={styles.tabsSection}>
+          <View style={styles.tabBar}>
+            <Pressable
+              style={[styles.tab, activeTab === 0 && styles.tabActive]}
+              onPress={() => setActiveTab(0)}
+            >
+              <Text style={[styles.tabText, activeTab === 0 && styles.tabTextActive]}>训练打卡</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.tab, activeTab === 1 && styles.tabActive]}
+              onPress={() => setActiveTab(1)}
+            >
+              <Text style={[styles.tabText, activeTab === 1 && styles.tabTextActive]}>睡眠</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.tab, activeTab === 2 && styles.tabActive]}
+              onPress={() => setActiveTab(2)}
+            >
+              <Text style={[styles.tabText, activeTab === 2 && styles.tabTextActive]}>体重</Text>
+            </Pressable>
           </View>
-        )}
+
+          {/* Tab content */}
+          <View style={styles.tabContent}>
+            {activeTab === 0 && (
+              todayCheckIns.length > 0 ? (
+                <View style={styles.recordsList}>
+                  {todayCheckIns.map(record => (
+                    <TodayCheckInCard key={record.id} record={record} />
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyStateText}>暂无训练打卡</Text>
+                </View>
+              )
+            )}
+
+            {activeTab === 1 && (
+              todaySleep ? (
+                <View style={styles.recordsList}>
+                  <SleepRecordCard record={todaySleep} />
+                </View>
+              ) : (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyStateText}>暂无睡眠记录</Text>
+                </View>
+              )
+            )}
+
+            {activeTab === 2 && (
+              todayWeight ? (
+                <View style={styles.recordsList}>
+                  <WeightRecordCard record={todayWeight} />
+                </View>
+              ) : (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyStateText}>暂无体重记录</Text>
+                </View>
+              )
+            )}
+          </View>
+        </View>
       </ScrollView>
 
       <Modal
@@ -344,6 +415,25 @@ export default function TrackScreen() {
           setPendingCalendarEntryId(undefined);
           loadTodayPlan();
           loadTodayCheckIns();
+        }}
+      />
+
+      <WeightConfirmSheet
+        visible={showWeightSheet}
+        date={todayStr}
+        onClose={() => setShowWeightSheet(false)}
+        onConfirmed={() => {
+          setShowWeightSheet(false);
+          loadWeightAndSleep();
+        }}
+      />
+
+      <SleepConfirmSheet
+        visible={showSleepSheet}
+        onClose={() => setShowSleepSheet(false)}
+        onConfirmed={() => {
+          setShowSleepSheet(false);
+          loadWeightAndSleep();
         }}
       />
     </>
@@ -410,5 +500,47 @@ const styles = StyleSheet.create({
   },
   checkInsList: {
     gap: SPACING.sm,
+  },
+  tabsSection: {
+    gap: SPACING.sm,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: PlatformColor('secondarySystemBackground'),
+    borderRadius: RADIUS.lg,
+    padding: 4,
+    gap: 4,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+  },
+  tabActive: {
+    backgroundColor: COLORS.primary,
+  },
+  tabText: {
+    ...TYPOGRAPHY.headline,
+    color: PlatformColor('label'),
+  },
+  tabTextActive: {
+    color: '#FFFFFF',
+  },
+  tabContent: {
+    minHeight: 100,
+  },
+  recordsList: {
+    gap: SPACING.sm,
+  },
+  emptyState: {
+    backgroundColor: PlatformColor('secondarySystemBackground'),
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    ...TYPOGRAPHY.body,
+    color: PlatformColor('tertiaryLabel'),
   },
 });

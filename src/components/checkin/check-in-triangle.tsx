@@ -36,11 +36,21 @@ const COLORS = {
 interface Props {
   onSegmentPress?: (index: number) => void;
   filledSegments?: number[];
-  /** When true, only the "运动" segment (index 0) is lit */
-  active?: boolean;
+  /** Left segment — 训练打卡 */
+  hasCheckIn?: boolean;
+  /** Bottom segment — 睡眠 */
+  hasSleepRecord?: boolean;
+  /** Right segment — 体重 */
+  hasWeightRecord?: boolean;
 }
 
-export default function CheckInTriangle({ onSegmentPress, filledSegments = [], active = false }: Props) {
+export default function CheckInTriangle({
+  onSegmentPress,
+  filledSegments = [],
+  hasCheckIn = false,
+  hasSleepRecord = false,
+  hasWeightRecord = false,
+}: Props) {
   const [activeSegments, setActiveSegments] = useState<number[]>(filledSegments);
 
   const handleSegmentPress = (index: number) => {
@@ -53,7 +63,9 @@ export default function CheckInTriangle({ onSegmentPress, filledSegments = [], a
   };
 
   const isLit = (index: number) => {
-    if (active && index === 0) return true;
+    if (index === 0 && hasCheckIn) return true;
+    if (index === 1 && hasSleepRecord) return true;
+    if (index === 2 && hasWeightRecord) return true;
     return activeSegments.includes(SEGMENTS[index].id);
   };
 

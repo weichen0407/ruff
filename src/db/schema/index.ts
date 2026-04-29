@@ -104,6 +104,30 @@ export const checkInDailyOverview = sqliteTable('check_in_daily_overview', {
   id: text('id').primaryKey(),
   date: text('date').notNull().unique(), // YYYY-MM-DD
   hasCheckIn: integer('has_check_in', { mode: 'boolean' }).notNull().default(false),
+  hasWeightRecord: integer('has_weight_record', { mode: 'boolean' }).notNull().default(false),
+  hasSleepRecord: integer('has_sleep_record', { mode: 'boolean' }).notNull().default(false),
+});
+
+export const weightRecord = sqliteTable('weight_record', {
+  id: text('id').primaryKey(),
+  date: text('date').notNull(), // YYYY-MM-DD 打卡日期
+  weight: real('weight').notNull(), // kg，精确到 0.1
+  photos: text('photos'), // JSON array of file paths
+  comment: text('comment'), // 用户心得
+  createdAt: text('created_at').notNull(),
+  syncedAt: text('synced_at'),
+});
+
+export const sleepRecord = sqliteTable('sleep_record', {
+  id: text('id').primaryKey(),
+  date: text('date').notNull(), // YYYY-MM-DD 关联日期（打卡前一天）
+  wakeTime: text('wake_time').notNull(), // HH:MM 起床时间
+  sleepTime: text('sleep_time').notNull(), // HH:MM 入睡时间
+  duration: integer('duration'), // 分钟，计算得出
+  photos: text('photos'), // JSON array of file paths
+  comment: text('comment'), // 用户心得
+  createdAt: text('created_at').notNull(),
+  syncedAt: text('synced_at'),
 });
 
 // ============================================================================

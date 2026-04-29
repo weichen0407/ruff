@@ -87,7 +87,31 @@ CREATE TABLE IF NOT EXISTS \`check_in_record\` (
 CREATE TABLE IF NOT EXISTS \`check_in_daily_overview\` (
   \`id\` text PRIMARY KEY,
   \`date\` text NOT NULL UNIQUE,
-  \`has_check_in\` integer NOT NULL DEFAULT 0
+  \`has_check_in\` integer NOT NULL DEFAULT 0,
+  \`has_weight_record\` integer NOT NULL DEFAULT 0,
+  \`has_sleep_record\` integer NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS \`weight_record\` (
+  \`id\` text PRIMARY KEY,
+  \`date\` text NOT NULL,
+  \`weight\` real NOT NULL,
+  \`photos\` text,
+  \`comment\` text,
+  \`created_at\` text NOT NULL,
+  \`synced_at\` text
+);
+
+CREATE TABLE IF NOT EXISTS \`sleep_record\` (
+  \`id\` text PRIMARY KEY,
+  \`date\` text NOT NULL,
+  \`wake_time\` text NOT NULL,
+  \`sleep_time\` text NOT NULL,
+  \`duration\` integer,
+  \`photos\` text,
+  \`comment\` text,
+  \`created_at\` text NOT NULL,
+  \`synced_at\` text
 );
 
 CREATE INDEX IF NOT EXISTS \`idx_weekly_plan_plan_id\` ON \`weekly_plan\`(\`plan_id\`);
@@ -107,8 +131,9 @@ CREATE TABLE IF NOT EXISTS \`user_favorite\` (
 `;
 
 const MIGRATION_SQL = `
--- Migration: add comment column to check_in_record if not exists
-ALTER TABLE \`check_in_record\` ADD COLUMN \`comment\` text;
+-- Migration: add columns to check_in_daily_overview if not exists
+ALTER TABLE \`check_in_daily_overview\` ADD COLUMN \`has_weight_record\` integer NOT NULL DEFAULT 0;
+ALTER TABLE \`check_in_daily_overview\` ADD COLUMN \`has_sleep_record\` integer NOT NULL DEFAULT 0;
 `;
 
 let dbInstance: ReturnType<typeof drizzle<typeof schema>> | null = null;

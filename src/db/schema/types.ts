@@ -8,6 +8,8 @@ import type {
   userPlanCalendar,
   checkInRecord,
   checkInDailyOverview,
+  weightRecord,
+  sleepRecord,
 } from './index';
 
 // User types
@@ -41,6 +43,14 @@ export type InsertCheckInRecord = typeof checkInRecord.$inferInsert;
 // Daily overview types
 export type CheckInDailyOverview = typeof checkInDailyOverview.$inferSelect;
 export type InsertCheckInDailyOverview = typeof checkInDailyOverview.$inferInsert;
+
+// Weight record types
+export type WeightRecord = typeof weightRecord.$inferSelect;
+export type InsertWeightRecord = typeof weightRecord.$inferInsert;
+
+// Sleep record types
+export type SleepRecord = typeof sleepRecord.$inferSelect;
+export type InsertSleepRecord = typeof sleepRecord.$inferInsert;
 
 // Enums
 export type TargetDistance = '5k' | '10k' | 'half' | 'full';
